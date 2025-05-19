@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   FiShoppingCart, FiTag, FiStar, FiTrendingUp, FiChevronDown, FiChevronUp, FiEdit, FiEye, FiHeart, FiSearch, FiMessageCircle, FiPrinter, FiMail
 } from 'react-icons/fi';
-import SideMenu from './SideMenu';
+import SideMenu from '../layouts/SideMenu';
 
 // --- Mock Data (add more as needed) ---
 const mockCategories = [
@@ -1263,16 +1263,6 @@ const Category = () => {
             </div>
           </div>
         )}
-
-        {/* Live Chat Support (Mock) */}
-        <div className="fixed bottom-6 right-6 z-50">
-          <button
-            className="bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 hover:bg-blue-600"
-            onClick={() => alert('Live chat support coming soon!')}
-          >
-            <FiMessageCircle className="text-black" /> Live Chat
-          </button>
-        </div>
       </div>
     </div>
   );

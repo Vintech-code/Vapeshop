@@ -1,59 +1,67 @@
 import { useState, useEffect } from 'react';
 import { FiTrash, FiPlus, FiX, FiEye } from 'react-icons/fi';
-import SideMenu from './SideMenu';
-import Header from './Header';
+import SideMenu from '../layouts/SideMenu';
+import Header from '../layouts/Header';
+import API from '../api';
 
 const ProductOverview = () => {
     const [products, setProducts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [newProduct, setNewProduct] = useState({ name: '', category: '', price: '', stock: '', image: '' });
+    const [newProduct, setNewProduct] = useState({
+        name: '',
+        category: '',
+        price: '',
+        stock: '',
+        image: ''
+    });
     const [overviewProduct, setOverviewProduct] = useState(null);
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
-
-    // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
+    const [editCell, setEditCell] = useState({ row: null, col: null });
+    const [editValue, setEditValue] = useState('');
+
+    const columns = [
+        { key: 'id', label: 'ID' },
+        { key: 'name', label: 'Name' },
+        { key: 'category', label: 'Category' },
+        { key: 'price', label: 'Price' },
+        { key: 'stock', label: 'Stock' },
+        { key: 'image', label: 'Image' },
+        { key: 'features', label: 'Features' },
+        { key: 'actions', label: 'Actions' }
+    ];
+
+    const fetchProducts = async () => {
+        try {
+            const response = await API.get('http://localhost:8000/api/products');
+            setProducts(response.data);
+        } catch (error) {
+            console.error('Error fetching products:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
-        // Example products for testing
-        const exampleProducts = [
-            { id: 1, name: "Vape Pen", price: 649.50, stock: 10, category: "Vape", image: '/img/Vape Pen3.jpg', features: ["Portable", "Durable"], credibility: "Top Seller" },
-            { id: 2, name: "Nicotine Juice", price: 274.50, stock: 15, category: "Liquids", image: '/img/Nicotine juice.jpg', features: ["Smooth Flavor", "Premium Quality"], credibility: "Customer Favorite" },
-            { id: 3, name: "Vape Battery", price: 649.50, stock: 7, category: "Accessories", image: '/img/Battery1.webp', features: ["Long-lasting", "Rechargeable"], credibility: "Highly Rated" },
-            { id: 4, name: "Vape Pod", price: 499.50, stock: 5, category: "Vape", image: '/img/Vape Pods.webp', features: ["Compact Design", "Easy to Use"], credibility: "Best Value" },
-            { id: 5, name: "Vape Juice", price: 199.99, stock: 20, category: "Liquids", image: '/img/Vape Juice.jpg', features: ["Rich Taste", "Affordable"], credibility: "Popular Choice" },
-            { id: 6, name: "Vape Charger", price: 150.00, stock: 12, category: "Accessories", image: '/img/Vape Charger.jpg', features: ["Fast Charging", "Safe"], credibility: "Reliable" },
-            { id: 7, name: "Vape Tank", price: 350.00, stock: 8, category: "Vape", image: '/img/Vape Tank.jpg', features: ["Large Capacity", "Easy Refill"], credibility: "Best Seller" },
-            { id: 8, name: "Vape Cotton", price: 50.00, stock: 30, category: "Accessories", image: '/img/Vape Cotton.jpg', features: ["Organic", "Long Lasting"], credibility: "Highly Rated" },
-        ];
-        setProducts(exampleProducts);
-        setIsLoading(false);
+        fetchProducts();
     }, []);
 
-    // Pagination logic
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
     const currentItems = products.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(products.length / itemsPerPage);
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         if (window.confirm('Are you sure you want to delete this product?')) {
-            setProducts(products.filter(product => product.id !== id));
+            try {
+                await API.delete(`http://localhost:8000/api/products/${id}`);
+                fetchProducts();
+            } catch (error) {
+                console.error('Error deleting product:', error);
+            }
         }
-    };
-
-    const handleAddProduct = () => {
-        if (!newProduct.name || !newProduct.category || !newProduct.price || !newProduct.stock || !newProduct.image) {
-            alert('Please fill in all fields.');
-            return;
-        }
-
-        const newId = products.length > 0 ? Math.max(...products.map(product => product.id)) + 1 : 1;
-        const productToAdd = { ...newProduct, id: newId, price: parseFloat(newProduct.price), stock: parseInt(newProduct.stock, 10), features: [], credibility: "" };
-        setProducts([...products, productToAdd]);
-        setNewProduct({ name: '', category: '', price: '', stock: '', image: '' });
-        setIsModalOpen(false);
     };
 
     const handleOverview = (product) => {
@@ -64,24 +72,31 @@ const ProductOverview = () => {
         setIsImageModalOpen(true);
     };
 
-    // Excel-like cell editing
-    const [editCell, setEditCell] = useState({ row: null, col: null });
-    const [editValue, setEditValue] = useState('');
+   const handleAddProduct = async () => {
+  const formData = new FormData();
+  formData.append('name', newProduct.name);
+  formData.append('category', newProduct.category);
+  formData.append('price', newProduct.price);
+  formData.append('stock', newProduct.stock);
+  if (newProduct.image) {
+    formData.append('image', newProduct.image);
+  }
 
-    const columns = [
-        { key: 'id', label: 'ID' },
-        { key: 'name', label: 'Name' },
-        { key: 'category', label: 'Category' },
-        { key: 'price', label: 'Price' },
-        { key: 'stock', label: 'Stock' },
-        { key: 'credibility', label: 'Credibility' },
-        { key: 'features', label: 'Features' },
-        { key: 'image', label: 'Image' },
-        { key: 'actions', label: 'Actions' }
-    ];
+  try {
+    await API.post('http://localhost:8000/api/products', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    setNewProduct({ name: '', category: '', price: '', stock: '', image: '' });
+    setIsModalOpen(false);
+    fetchProducts();
+  } catch (error) {
+    console.error('Error adding product:', error);
+  }
+};
+
 
     const handleCellDoubleClick = (rowIdx, colKey) => {
-        if (colKey === 'actions' || colKey === 'image' || colKey === 'id') return;
+        if (colKey === 'id' || colKey === 'image') return;
         setEditCell({ row: rowIdx, col: colKey });
         setEditValue(products[rowIdx][colKey]);
     };
@@ -90,12 +105,15 @@ const ProductOverview = () => {
         setEditValue(e.target.value);
     };
 
-    const handleCellBlur = (rowIdx, colKey) => {
-        const updatedProducts = [...products];
-        updatedProducts[rowIdx][colKey] = colKey === 'price' ? parseFloat(editValue) :
-                                          colKey === 'stock' ? parseInt(editValue, 10) :
-                                          editValue;
-        setProducts(updatedProducts);
+    const handleCellBlur = async (rowIdx, colKey) => {
+        const updatedProduct = { ...products[rowIdx] };
+        updatedProduct[colKey] = editValue;
+        try {
+            await API.put(`http://localhost:8000/api/products/${updatedProduct.id}`, updatedProduct);
+            fetchProducts();
+        } catch (error) {
+            console.error('Error updating product:', error);
+        }
         setEditCell({ row: null, col: null });
     };
 
@@ -111,16 +129,13 @@ const ProductOverview = () => {
             <div className="h-screen w-64 fixed top-0 left-0 z-30 bg-white border-r shadow-lg">
                 <SideMenu />
             </div>
-
-            {/* Main Content with left margin for fixed SideMenu */}
+            {/* Main Content */}
             <div className="flex-1 flex flex-col ml-64">
                 <Header />
-
                 <main className="flex-1 p-6">
                     <div className="max-w-7xl mx-auto">
-                        {/* Header Section */}
                         <div className="flex justify-between items-center mb-6">
-                            <h1 className="text-3xl font-bold text-gray-800">Product Overview </h1>
+                            <h1 className="text-3xl font-bold text-gray-800">Product Overview</h1>
                             <button
                                 onClick={() => setIsModalOpen(true)}
                                 className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2 shadow-md"
@@ -128,8 +143,6 @@ const ProductOverview = () => {
                                 <FiPlus /> Add New Product
                             </button>
                         </div>
-
-                        {/* Excel-like Table */}
                         <div className="overflow-x-auto">
                             <table className="min-w-full bg-white rounded shadow">
                                 <thead>
@@ -169,14 +182,10 @@ const ProductOverview = () => {
                                                             />
                                                         ) : col.key === 'image' ? (
                                                             <img
-                                                                src={product.image}
+                                                                src={product.image ? `http://localhost:8000/storage/${product.image}` : '/placeholder.jpg'}
                                                                 alt={product.name}
                                                                 className="w-12 h-12 object-cover rounded cursor-pointer"
-                                                                onClick={() => {
-                                                                    setOverviewProduct(product);
-                                                                    setIsImageModalOpen(true);
-                                                                }}
-                                                            />
+                                                                />
                                                         ) : col.key === 'features' ? (
                                                             Array.isArray(product.features) ? product.features.join(', ') : product.features
                                                         ) : col.key === 'actions' ? (
@@ -207,7 +216,6 @@ const ProductOverview = () => {
                                 </tbody>
                             </table>
                         </div>
-
                         {/* Pagination Controls */}
                         <div className="flex justify-center mt-8 space-x-2">
                             <button
@@ -237,11 +245,23 @@ const ProductOverview = () => {
                     </div>
                 </main>
             </div>
-
-            {/* Add Product Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    {/* Blurred Background with onClick to close */}
+                    <div
+                        className="fixed inset-0"
+                        style={{
+                            background: 'rgba(0,0,0,0.15)',
+                            backdropFilter: 'blur(2px)',
+                            cursor: 'pointer',
+                        }}
+                        onClick={() => setIsModalOpen(false)}
+                    ></div>
+                    {/* Modal Content */}
+                    <div
+                        className="relative bg-white rounded-lg shadow-lg p-6 w-full max-w-md z-10"
+                        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
+                    >
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-xl font-bold text-gray-800">Add New Product</h2>
                             <button
@@ -281,20 +301,13 @@ const ProductOverview = () => {
                                 className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                             <input
-                                type="text"
-                                placeholder="Image URL"
-                                value={newProduct.image}
-                                onChange={(e) => setNewProduct({ ...newProduct, image: e.target.value })}
-                                className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
+  type="file"
+  accept="image/*"
+  onChange={(e) => setNewProduct({ ...newProduct, image: e.target.files[0] })}
+/>
+
                         </div>
-                        <div className="mt-6 flex justify-end gap-4">
-                            <button
-                                onClick={() => setIsModalOpen(false)}
-                                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
-                            >
-                                Cancel
-                            </button>
+                        <div className="flex justify-end mt-6">
                             <button
                                 onClick={handleAddProduct}
                                 className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
@@ -302,72 +315,6 @@ const ProductOverview = () => {
                                 Add Product
                             </button>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Image Modal */}
-            {isImageModalOpen && overviewProduct && (
-                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-lg p-4 relative">
-                        <button
-                            onClick={() => setIsImageModalOpen(false)}
-                            className="text-gray-500 hover:text-gray-700 absolute top-4 right-4"
-                        >
-                            <FiX size={24} />
-                        </button>
-                        <img
-                            src={overviewProduct.image}
-                            alt={overviewProduct.name}
-                            className="w-full h-auto rounded-lg"
-                        />
-                    </div>
-                </div>
-            )}
-
-            {/* Overview Modal */}
-            {overviewProduct && !isImageModalOpen && (
-                <div className="fixed inset-0 flex items-center justify-center z-50">
-                    <div
-                        className="fixed inset-0"
-                        style={{
-                            background: 'rgba(0,0,0,0.15)',
-                            backdropFilter: 'blur(2px)',
-                            cursor: 'pointer'
-                        }}
-                        onClick={() => setOverviewProduct(null)}
-                    ></div>
-                    <div className="bg-white rounded-lg shadow-lg p-8 max-w-xs w-full relative z-10">
-                        <button
-                            onClick={() => setOverviewProduct(null)}
-                            className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl font-bold"
-                            aria-label="Close"
-                        >
-                            <FiX size={24} />
-                        </button>
-                        <img
-                            src={overviewProduct.image}
-                            alt={overviewProduct.name}
-                            className="w-32 h-32 object-cover rounded-lg mb-4 mx-auto"
-                            onClick={handleImageClick}
-                            style={{ cursor: 'pointer' }}
-                        />
-                        <h2 className="text-2xl font-bold mb-2 text-gray-800">{overviewProduct.name}</h2>
-                        <p className="mb-2 text-gray-700">
-                            <strong>Category:</strong> {overviewProduct.category}
-                        </p>
-                        <p className="mb-2 text-gray-700">
-                            <strong>Price:</strong> ₱{overviewProduct.price?.toFixed(2)}
-                        </p>
-                        <p className="mb-2 text-gray-700">
-                            <strong>Stock:</strong> {overviewProduct.stock}
-                        </p>
-                        <p className="mb-2 text-gray-700">
-                            <strong>Features:</strong> {Array.isArray(overviewProduct.features) ? overviewProduct.features.join(', ') : overviewProduct.features}
-                        </p>
-                        <p className="mb-2 text-gray-700">
-                            <strong>Credibility:</strong> {overviewProduct.credibility}
-                        </p>
                     </div>
                 </div>
             )}

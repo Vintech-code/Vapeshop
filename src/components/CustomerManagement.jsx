@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FiEdit, FiTrash, FiGift, FiMail, FiTag, FiStar, FiUserCheck, FiMessageCircle } from 'react-icons/fi';
-import SideMenu from './SideMenu';
+import SideMenu from '../layouts/SideMenu';
 
 // Use localStorage to sync customers with Dashboard2
 const initialCustomers = JSON.parse(localStorage.getItem('customers')) || [

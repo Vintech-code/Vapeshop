@@ -46,17 +46,7 @@ const SideMenu = () => {
           >
             <FiHome /> Admin Dashboard
           </Link>
-          
-          {/* Removed Current Items link */}
-          <Link
-            to="/inventory-reports"
-            className={`block px-4 py-2 rounded-lg hover:bg-gray-700 ${
-              isActive('/inventory-reports') ? 'bg-gray-700' : ''
-            } flex items-center gap-2`}
-          >
-            <FiClipboard /> Inventory Reports
-          </Link>
-          
+             
           <Link
             to="/pos"
             className={`block px-4 py-2 rounded-lg hover:bg-gray-700 ${
@@ -64,15 +54,6 @@ const SideMenu = () => {
             } flex items-center gap-2`}
           >
             <FiShoppingCart /> POS
-          </Link>
-          
-          <Link
-            to="/purchase-history"
-            className={`block px-4 py-2 rounded-lg hover:bg-gray-700 ${
-              isActive('/purchase history') ? 'bg-gray-700' : ''
-            } flex items-center gap-2`}
-          >
-            <FiShoppingCart /> Purchase History
           </Link>
           <Link
             to="/product-overview"
@@ -82,15 +63,24 @@ const SideMenu = () => {
           >
             <FiGrid /> Products
           </Link>
-          
           <Link
-            to="/settings2"
+            to="/purchase-history"
             className={`block px-4 py-2 rounded-lg hover:bg-gray-700 ${
-              isActive('/settings2') ? 'bg-gray-700' : ''
+              isActive('/purchase history') ? 'bg-gray-700' : ''
             } flex items-center gap-2`}
           >
-            <FiSettings /> Admin Settings 
+            <FiShoppingCart /> Purchase History
           </Link>
+          {/* Removed Current Items link */}
+          <Link
+            to="/reports"
+            className={`block px-4 py-2 rounded-lg hover:bg-gray-700 ${
+              isActive('/reports') ? 'bg-gray-700' : ''
+            } flex items-center gap-2`}
+          >
+            <FiClipboard /> Reports
+          </Link>
+ 
         </>
       )}
 
@@ -121,15 +111,6 @@ const SideMenu = () => {
             } flex items-center gap-2`}
           >
             <FiBarChart2 /> Sales Report
-          </Link>
-
-          <Link
-            to="/settings"
-            className={`block px-4 py-2 rounded-lg hover:bg-gray-700 ${
-              isActive('/settings') ? 'bg-gray-700' : ''
-            } flex items-center gap-2`}
-          >
-            <FiSettings /> Settings
           </Link>
         </>
       )}

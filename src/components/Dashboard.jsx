@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Store } from 'lucide-react';
-import SideMenu from './SideMenu';
-import Header from './Header';
+import SideMenu from '../layouts/SideMenu';
+import Header from '../layouts/Header';
 
 const Dashboard = () => {
     const [products, setProducts] = useState([]);

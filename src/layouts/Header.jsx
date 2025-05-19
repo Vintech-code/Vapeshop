@@ -12,7 +12,7 @@ const Header = () => {
 
   return (
     <header className="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
-      <h1 className="text-2xl font-bold text-gray-800">Vape Shop</h1>
+      <h1 className="text-2xl font-bold text-gray-800"></h1>
 
       <div className="flex items-center space-x-6">
         <span className="text-gray-600 text-base">

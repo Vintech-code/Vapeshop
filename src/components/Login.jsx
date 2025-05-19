@@ -1,31 +1,39 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
+import API from '../api'; 
 
 const LoginPage = () => {
-  const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
 
-    const trimmedUsername = username.trim().toLowerCase();
-    const trimmedPassword = password.trim();
+    try {
+      const response = await API.post('/login', {
+        username: username.trim(),
+        password: password.trim(),
+      });
 
-    const accounts = {
-      'admin': { password: '123', role: 'admin' },
-      'cashier': { password: '123', role: 'cashier' },
-    };
+      const { token, role } = response.data;
 
-    const user = accounts[trimmedUsername];
+      // Save token and role in localStorage
+      localStorage.setItem('token', token);
+      localStorage.setItem('role', role);
 
-    if (user && user.password === trimmedPassword) {
-      localStorage.setItem('role', user.role);
-      navigate(user.role === 'admin' ? '/dashboard' : '/dashboard2');
-    } else {
+      // Redirect based on role
+      if (role === 'admin') {
+        navigate('/dashboard');
+      } else if (role === 'cashier') {
+        navigate('/categories');
+      } else {
+        setErrorMsg('Unauthorized role');
+      }
+    } catch (error) {
       setErrorMsg('Invalid credentials. Please try again.');
     }
   };
@@ -65,20 +73,10 @@ const LoginPage = () => {
             </TogglePassword>
           </PasswordContainer>
 
-          <Extras>
-            <label>
-              <input type="checkbox" /> Remember Me
-            </label>
-            <a href="#">Forgot Password?</a>
-          </Extras>
-
           <LoginButton type="submit">Log In</LoginButton>
         </form>
 
         <Divider />
-        <OtherOptions>
-          Don’t have an account? <a href="#">Create one</a>
-        </OtherOptions>
       </LoginFormContainer>
     </LoginContainer>
   );
@@ -93,11 +91,11 @@ const LoginContainer = styled.div`
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  justify-content: flex-start;
-  align-items: center;
-  padding: 0 80px;
+  justify-content: center; // <-- center horizontally
+  align-items: center;     // <-- center vertically
   position: relative;
 `;
+
 
 const Overlay = styled.div`
   position: absolute;

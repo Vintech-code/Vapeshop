@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiInfo, FiFileText, FiTrendingUp, FiUsers, FiDollarSign, FiClock, FiDownload } from 'react-icons/fi';
-import SideMenu from './SideMenu';
-import Header from './Header';
+import SideMenu from '../layouts/SideMenu';
+import Header from '../layouts/Header';
 
 // Mock detailed sales data for demonstration
 const mockSales = [
