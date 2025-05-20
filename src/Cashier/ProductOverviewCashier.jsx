@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { FiPlus, FiX, FiSearch } from 'react-icons/fi';
-import { ToastContainer, toast } from 'react-toastify'; // Fixed import
 import { HiEyeSlash } from "react-icons/hi2";
 import SideMenu from '../layouts/SideMenu';
 import Header from '../layouts/Header';
 import API from '../api';
 
-const ProductOverview = () => {
-    const [products, setProducts] = useState([]);
+const ProductOverviewCashier = () => {
+   const [products, setProducts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newProduct, setNewProduct] = useState({
@@ -35,12 +34,13 @@ const ProductOverview = () => {
         { key: 'actions', label: 'Actions' }
     ];
 
-  const fetchProducts = async (showHiddenState = false) => {
-  setIsLoading(true);
+    const fetchProducts = async () => {
   try {
-    const url = showHiddenState ? '/products?showHidden=true' : '/products';
-    const response = await API.get(url);
-    setProducts(response.data);
+    const response = await API.get('/products');
+    const visibleProducts = response.data.filter(product => 
+      showHidden ? product.is_hidden : !product.is_hidden
+    );
+    setProducts(visibleProducts);
   } catch (error) {
     console.error('Error fetching products:', error);
   } finally {
@@ -48,11 +48,8 @@ const ProductOverview = () => {
   }
 };
 
-
-useEffect(() => {
-  setCurrentPage(1);
-  setIsLoading(true);
-  fetchProducts(showHidden);
+   useEffect(() => {
+  fetchProducts();
 }, [showHidden]);
 
     const indexOfLastItem = currentPage * itemsPerPage;
@@ -62,30 +59,27 @@ useEffect(() => {
 
     const handleHideProduct = async (id) => {
   try {
-    await API.put(`/products/${id}`, { is_hidden: true });
-    toast.success('Product hidden successfully!');
-    fetchProducts(showHidden); // Refresh list after hiding
+    const product = products.find((p) => p.id === id);
+    if (!product) return;
+
+    const updatedProduct = {
+      name: product.name,
+      category: product.category,
+      price: product.price,
+      stock: product.stock,
+      is_hidden: true, // toggle this to true
+      credibility: product.credibility ?? null,
+    };
+
+    await API.put(`/products/${id}`, updatedProduct);
+
+    // Optionally update the local state to hide product from view
+    setProducts(products.filter((p) => p.id !== id));
   } catch (error) {
     console.error('Error hiding product:', error);
-    toast.error('Failed to hide product');
   }
 };
-// New: Unhide product
-const handleUnhideProduct = async (product) => {
-  if (!product?.id) {
-    console.error("Product ID is missing");
-    return;
-  }
 
-  try {
-    await API.put(`/products/${product.id}`, { is_hidden: false });
-    toast.success('Product unhidden successfully!');
-    fetchProducts(showHidden); // Refresh list
-  } catch (error) {
-    console.error("Error unhiding product:", error);
-    toast.error('Failed to unhide product');
-  }
-};
 
 
     const handleOverview = (product) => {
@@ -96,51 +90,37 @@ const handleUnhideProduct = async (product) => {
         setIsImageModalOpen(true);
     };
 
-     const handleAddProduct = async () => {
-        const formData = new FormData();
-        formData.append('name', newProduct.name);
-        formData.append('category', newProduct.category);
-        formData.append('price', parseFloat(newProduct.price));
-        formData.append('stock', parseInt(newProduct.stock));
-        
-        if (!newProduct.image) {
-            toast.error('Please select an image', {
-                position: "top-right",
-                autoClose: 3000,
-            });
-            return;
-        }
+    const handleAddProduct = async () => {
+    const formData = new FormData();
+    formData.append('name', newProduct.name);
+    formData.append('category', newProduct.category);
+    formData.append('price', parseFloat(newProduct.price));
+    formData.append('stock', parseInt(newProduct.stock));
+    
+    // Make sure image is appended correctly
+    if (newProduct.image) {
         formData.append('image', newProduct.image);
+    } else {
+        alert('Please select an image');
+        return;
+    }
 
-        try {
-            const response = await API.post('/products', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
-            
-            fetchProducts();
-            setNewProduct({ name: '', category: '', price: '', stock: '', image: null });
-            setIsModalOpen(false);
-            
-            toast.success('Product added successfully!', {
-                position: "top-right",
-                autoClose: 3000,
-                hideProgressBar: false,
-                closeOnClick: true,
-                pauseOnHover: true,
-                draggable: true,
-                theme: "colored",
-            });
-        } catch (error) {
-            console.error('Error adding product:', error);
-            toast.error('Failed to add product', {
-                position: "top-right",
-                autoClose: 3000,
-                theme: "colored",
-            });
-        }
-    };
+    try {
+        const response = await API.post('/products', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        
+        // Refresh the product list
+        fetchProducts();
+        // Reset form
+        setNewProduct({ name: '', category: '', price: '', stock: '', image: null });
+        setIsModalOpen(false);
+    } catch (error) {
+        console.error('Error adding product:', error);
+    }
+};
 
     const handleCellDoubleClick = (rowIdx, colKey) => {
         if (colKey === 'id' || colKey === 'image') return;
@@ -172,18 +152,6 @@ const handleUnhideProduct = async (product) => {
 
     return (
         <div className="flex min-h-screen bg-gray-100">
-            <ToastContainer
-                position="top-right"
-                autoClose={3000}
-                hideProgressBar={false}
-                newestOnTop={false}
-                closeOnClick
-                rtl={false}
-                pauseOnFocusLoss
-                draggable
-                pauseOnHover
-                theme="colored"
-            />
             {/* Fixed SideMenu */}
             <div className="h-screen w-64 fixed top-0 left-0 z-30 bg-white border-r shadow-lg">
                 <SideMenu />
@@ -193,24 +161,27 @@ const handleUnhideProduct = async (product) => {
                 <Header />
                 <main className="flex-1 p-6">
                     <div className="max-w-7xl mx-auto">
-                        <div className="flex justify-between items-center mb-6">
-  <h1 className="text-3xl font-bold text-gray-800">Product Overview</h1>
-  <div className="flex gap-2">
-    <button
-      onClick={() => setShowHidden(!showHidden)}
-      className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 flex items-center gap-2 shadow-md"
-    >
-      <HiEyeSlash className="h-5 w-5" />
-      {showHidden ? 'Show Active Products' : 'Show Hidden Products'}
-    </button>
-    <button
-      onClick={() => setIsModalOpen(true)}
-      className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2 shadow-md"
-    >
-      <FiPlus /> Add New Product
-    </button>
-  </div>
-</div>
+                                                <div className="flex justify-between items-center mb-6">
+                        <h1 className="text-3xl font-bold text-gray-800">Product Overview</h1>
+                        <div className="flex gap-2">
+                           <button
+  onClick={() => setShowHidden(!showHidden)}
+  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 shadow-md cursor-not-allowed opacity-50"
+  disabled
+>
+  <HiEyeSlash className="h-5 w-5" />
+  {showHidden ? 'Show Active Products' : 'Show Hidden Products'}
+</button>
+
+                            <button
+  disabled
+  className="bg-gray-400 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-md cursor-not-allowed"
+>
+  <FiPlus /> Add New Product
+</button>
+
+                        </div>
+                        </div>
                         <div className="overflow-x-auto">
                             <table className="min-w-full bg-white rounded shadow">
                                 <thead>
@@ -263,35 +234,24 @@ const handleUnhideProduct = async (product) => {
                                                     <span>No image</span>
                                                     )
                                                 ) : col.key === 'actions' ? (
-                                                   <div className="flex gap-2">
-    {!showHidden ? (
-      // Show Hide button when viewing active products
-      <button
-        onClick={() => handleHideProduct(product.id)}
-        className="text-gray-500 hover:text-gray-700 flex items-center gap-1"
-        title="Hide Product"
-      >
-        <HiEyeSlash className="h-5 w-5" /> Hide
-      </button>
-    ) : (
-      // Show Unhide button when viewing hidden products
-     <button
-  onClick={() => handleUnhideProduct(product)}
-  className="text-gray-500 hover:text-gray-700 flex items-center gap-1"
-  title="Unhide Product"
+                                                    <div className="flex gap-2">
+                                                  
+                                                    <button
+  disabled
+  className="bg-gray-400 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-md cursor-not-allowed"
 >
-  <HiEyeSlash className="h-5 w-5" /> Unhide
+  <HiEyeSlash className="h-5 w-5" />
+  
 </button>
 
-    )}
-  </div>
+                                                    </div>
                                                 ) : col.key === 'stock' ? (
                                                     <>
                                                     {product.stock === 0 ? (
                                                         <span className="text-xs text-white bg-red-500 px-2 py-1 rounded-full">
                                                         Out of Stock
                                                         </span>
-                                                    ) : product.stock <= 5 ? (
+                                                    ) : product.stock <= 50 ? (
                                                         <span className="text-xs text-white bg-yellow-500 px-2 py-1 rounded-full">
                                                         Low Stock ({product.stock})
                                                         </span>
@@ -426,4 +386,4 @@ const handleUnhideProduct = async (product) => {
     );
 };
 
-export default ProductOverview;
+export default ProductOverviewCashier;

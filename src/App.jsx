@@ -4,15 +4,14 @@ import Dashboard from '../src/components/Dashboard';
 import ProductManagement from './components/ProductManagement';
 import ProductOverview from './components/ProductOverview';
 import SalesManagement from './components/SalesManagement';
-import SalesReport from './components/SalesReports';
-import CustomerManagement from './components/CustomerManagement';
 import CustomerName from './components/CustomerName';
 import CurrentManagement from './components/CurrentManagement';
 import InventoryManagement from './components/InventoryManagement';
 import PurchaseHistory from './components/PurchaseHistory';
-import Category from './components/Category';
-import POS from './components/POS';
 import ProductReport from './components/ProductReport';
+import PurchaseHistoryCashier from './Cashier/PurchaseHistoryCashier';
+import ProductOverviewCashier from './Cashier/ProductOverviewCashier';
+import POSCashier from './Cashier/POSCashier';
 
 
 
@@ -25,14 +24,13 @@ function App() {
         <Route path="/products" element={<ProductManagement />} />
         <Route path="/product-overview" element={<ProductOverview />} />
         <Route path="/sales-management" element={<SalesManagement />} />
-        <Route path="/sales-report" element={<SalesReport />} /> 
-        <Route path="/customer-management" element={<CustomerManagement />} />
+        <Route path="/purchase-history-cashier" element={<PurchaseHistoryCashier />} /> 
+        <Route path="/poscashier" element={<POSCashier />} />
         <Route path="/customer-name" element={<CustomerName />} />
         <Route path="/current-management" element={<CurrentManagement />} />
         <Route path="/inventory-management" element={<InventoryManagement />} />
         <Route path="/purchase-history" element={<PurchaseHistory />} />
-        <Route path="/categories" element={<Category />} />
-        <Route path="/pos" element={<POS />} />
+        <Route path="/categories" element={<ProductOverviewCashier />} />
         <Route path="/productreport" element={<ProductReport />} />
       </Routes>
     </Router>

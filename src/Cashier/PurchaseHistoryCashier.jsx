@@ -6,7 +6,7 @@ import SideMenu from '../layouts/SideMenu';
 import Header from '../layouts/Header';
 
 
-const PurchaseHistory = () => {
+const PurchaseHistoryCashier = () => {
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -172,8 +172,8 @@ const PurchaseHistory = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {`₱${Number(purchase.total_amount || 0).toFixed(2)}`}
-                      </td>
+                      {`₱${Number(purchase.total_amount || 0).toFixed(2)}`}
+                    </td>
 
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {(purchase.items?.length || 0)} items
@@ -232,7 +232,6 @@ const PurchaseHistory = () => {
       {/* Purchase Detail Modal */}
       {selectedPurchase && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/10 backdrop-blur-xs">
-
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
             <div className="flex justify-between items-center border-b p-4">
               <h3 className="text-lg font-semibold">Purchase Details</h3>
@@ -338,4 +337,4 @@ const PurchaseHistory = () => {
   );
 };
 
-export default PurchaseHistory;
+export default PurchaseHistoryCashier;

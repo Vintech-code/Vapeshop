@@ -46,15 +46,6 @@ const SideMenu = () => {
           >
             <FiHome /> Admin Dashboard
           </Link>
-             
-          <Link
-            to="/pos"
-            className={`block px-4 py-2 rounded-lg hover:bg-gray-700 ${
-              isActive('/pos') ? 'bg-gray-700' : ''
-            } flex items-center gap-2`}
-          >
-            <FiShoppingCart /> POS
-          </Link>
           <Link
             to="/product-overview"
             className={`block px-4 py-2 rounded-lg hover:bg-gray-700 ${
@@ -87,30 +78,30 @@ const SideMenu = () => {
       {/* Cashier-specific menu */}
       {role === 'cashier' && (
         <>
-
+          <Link
+            to="/poscashier"
+            className={`block px-4 py-2 rounded-lg hover:bg-gray-700 ${
+              isActive('/pos') ? 'bg-gray-700' : ''
+            } flex items-center gap-2`}
+          >
+            <FiShoppingCart /> POS
+          </Link>
           <Link
             to="/categories"
             className={`block px-4 py-2 rounded-lg hover:bg-gray-700 ${
               isActive('/categories') ? 'bg-gray-700' : ''
             } flex items-center gap-2`}
           >
-            <FiList /> Categories
+            <FiList /> Products
           </Link>
+          
           <Link
-            to="/customer-management"
-            className={`block px-4 py-2 rounded-lg hover:bg-gray-700 ${
-              isActive('/customer-management') ? 'bg-gray-700' : ''
-            } flex items-center gap-2`}
-          >
-            <FiUsers /> Customer Management
-          </Link>
-          <Link
-            to="/sales-report"
+            to="/purchase-history-cashier"
             className={`block px-4 py-2 rounded-lg hover:bg-gray-700 ${
               isActive('/sales-report') ? 'bg-gray-700' : ''
             } flex items-center gap-2`}
           >
-            <FiBarChart2 /> Sales Report
+            <FiBarChart2 /> Purchase History
           </Link>
         </>
       )}

@@ -1,9 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { FiPrinter, FiDownload, FiFilter, FiX } from 'react-icons/fi';
 import { CSVLink } from 'react-csv';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, BarElement, CategoryScale, LinearScale } from 'chart.js';
+import { Pie, Bar } from 'react-chartjs-2';
 import SideMenu from '../layouts/SideMenu';
 import Header from '../layouts/Header';
 import API from '../api';
+
+// Register ChartJS components
+ChartJS.register(
+  ArcElement,
+  Tooltip,
+  Legend,
+  BarElement,
+  CategoryScale,
+  LinearScale
+);
 
 const ProductReport = () => {
   const [products, setProducts] = useState([]);
@@ -120,7 +132,7 @@ const ProductReport = () => {
 
   const getStockStatus = (stock) => {
     if (stock <= 0) return 'Out of Stock';
-    if (stock <= 5) return 'Low Stock';
+    if (stock <= 50) return 'Low Stock';
     return 'In Stock';
   };
 
@@ -129,6 +141,65 @@ const ProductReport = () => {
     if (stock <= 5) return 'bg-yellow-100 text-yellow-800';
     return 'bg-green-100 text-green-800';
   };
+
+  // Prepare data for charts
+  const getChartData = () => {
+    // Stock Status Data
+    const outOfStock = filteredProducts.filter(p => p.stock <= 0).length;
+    const lowStock = filteredProducts.filter(p => p.stock > 0 && p.stock <= 50).length;
+    const inStock = filteredProducts.filter(p => p.stock > 50).length;
+
+    // Price Distribution Data
+    const priceRanges = [
+      { label: '₱0 - ₱100', min: 0, max: 100 },
+      { label: '₱101 - ₱500', min: 101, max: 500 },
+      { label: '₱501 - ₱1000', min: 501, max: 1000 },
+      { label: '₱1001 - ₱5000', min: 1001, max: 5000 },
+      { label: '₱5000+', min: 5001, max: Infinity }
+    ];
+
+    const priceData = priceRanges.map(range => {
+      return filteredProducts.filter(product => 
+        product.price >= range.min && product.price <= range.max
+      ).length;
+    });
+
+    return {
+      stockStatus: {
+        labels: ['Out of Stock', 'Low Stock (≤50)', 'In Stock (>50)'],
+        datasets: [
+          {
+            data: [outOfStock, lowStock, inStock],
+            backgroundColor: [
+              'rgba(239, 68, 68, 0.7)',
+              'rgba(234, 179, 8, 0.7)',
+              'rgba(16, 185, 129, 0.7)'
+            ],
+            borderColor: [
+              'rgba(239, 68, 68, 1)',
+              'rgba(234, 179, 8, 1)',
+              'rgba(16, 185, 129, 1)'
+            ],
+            borderWidth: 1,
+          },
+        ],
+      },
+      priceDistribution: {
+        labels: priceRanges.map(range => range.label),
+        datasets: [
+          {
+            label: 'Products by Price Range',
+            data: priceData,
+            backgroundColor: 'rgba(124, 58, 237, 0.7)',
+            borderColor: 'rgba(124, 58, 237, 1)',
+            borderWidth: 1,
+          },
+        ],
+      },
+    };
+  };
+
+  const chartData = getChartData();
 
   const csvData = filteredProducts.map(product => ({
     ID: product.id,
@@ -159,6 +230,51 @@ const ProductReport = () => {
     window.print();
     document.body.innerHTML = originalContent;
     window.location.reload();
+  };
+
+  // Chart options
+  const pieOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'bottom',
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const label = context.label || '';
+            const value = context.raw || 0;
+            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+            const percentage = Math.round((value / total) * 100);
+            return `${label}: ${value} (${percentage}%)`;
+          }
+        }
+      }
+    }
+  };
+
+  const barOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            return `${context.raw} products`;
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          precision: 0
+        }
+      }
+    }
   };
 
   return (
@@ -308,23 +424,16 @@ const ProductReport = () => {
             )}
             
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="bg-white p-4 rounded-lg shadow">
                 <h3 className="text-gray-500 text-sm font-medium">Total Products</h3>
                 <p className="text-2xl font-bold">{filteredProducts.length}</p>
               </div>
               
               <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-gray-500 text-sm font-medium">Out of Stock</h3>
+                <h3 className="text-gray-500 text-sm font-medium">Low Stock (≤50)</h3>
                 <p className="text-2xl font-bold">
-                  {filteredProducts.filter(p => p.stock <= 0).length}
-                </p>
-              </div>
-              
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-gray-500 text-sm font-medium">Low Stock (≤5)</h3>
-                <p className="text-2xl font-bold">
-                  {filteredProducts.filter(p => p.stock > 0 && p.stock <= 5).length}
+                  {filteredProducts.filter(p => p.stock > 0 && p.stock <= 50).length}
                 </p>
               </div>
               
@@ -336,8 +445,45 @@ const ProductReport = () => {
               </div>
             </div>
             
+            {/* Charts Section */}
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white p-4 rounded-lg shadow">
+                <h3 className="text-lg font-medium mb-4">Stock Status Overview</h3>
+                <div className="h-64 flex items-center justify-center">
+                  <Pie 
+                    data={chartData.stockStatus} 
+                    options={pieOptions}
+                  />
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
+                  <div className="bg-red-100 text-red-800 p-2 rounded">
+                    Out: {chartData.stockStatus.datasets[0].data[0]}
+                  </div>
+                  <div className="bg-yellow-100 text-yellow-800 p-2 rounded">
+                    Low: {chartData.stockStatus.datasets[0].data[1]}
+                  </div>
+                  <div className="bg-green-100 text-green-800 p-2 rounded">
+                    In Stock: {chartData.stockStatus.datasets[0].data[2]}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white p-4 rounded-lg shadow">
+                <h3 className="text-lg font-medium mb-4">Price Distribution</h3>
+                <div className="h-64 flex items-center justify-center">
+                  <Bar 
+                    data={chartData.priceDistribution} 
+                    options={barOptions}
+                  />
+                </div>
+                <div className="mt-4 text-sm text-gray-500 text-center">
+                  {filteredProducts.length} products across {chartData.priceDistribution.labels.length} price ranges
+                </div>
+              </div>
+            </div>
+            
             {/* Report Table */}
-            <div id="report-content" className="bg-white rounded-lg shadow overflow-hidden">
+            <div id="report-content" className="mt-8 bg-white rounded-lg shadow overflow-hidden">
               {isLoading ? (
                 <div className="p-8 text-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
@@ -379,10 +525,11 @@ const ProductReport = () => {
                           <td className="px-6 py-4 whitespace-nowrap">
                             {product.image_url ? (
                               <img
-                                src={product.image_url}
-                                alt={product.name}
-                                className="w-10 h-10 object-cover rounded"
-                              />
+  src={`http://localhost:8000${product.image_url}`}
+  alt={product.name}
+  className="w-10 h-10 object-cover rounded"
+/>
+
                             ) : (
                               <span className="text-xs text-gray-400">No image</span>
                             )}
@@ -391,27 +538,8 @@ const ProductReport = () => {
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </div> 
               )}
-            </div>
-            
-            {/* Charts Section (would need charting library) */}
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-lg font-medium mb-4">Products by Category</h3>
-                {/* Placeholder for chart - would use Chart.js or similar */}
-                <div className="h-64 bg-gray-100 flex items-center justify-center text-gray-400">
-                  Category Distribution Chart
-                </div>
-              </div>
-              
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-lg font-medium mb-4">Stock Status Overview</h3>
-                {/* Placeholder for chart - would use Chart.js or similar */}
-                <div className="h-64 bg-gray-100 flex items-center justify-center text-gray-400">
-                  Stock Status Chart
-                </div>
-              </div>
             </div>
           </div>
         </main>

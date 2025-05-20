@@ -28,7 +28,7 @@ class ErrorBoundary extends React.Component {
 }
 
 const sampleUsers = [
-  { id: 1, username: 'admin', role: 'admin' },
+  { id: 1, username: 'cashier', role: 'cashier' },
   
 ];
 
@@ -37,7 +37,7 @@ const paymentMethods = [
   { key: 'card', label: 'Card' }
 ];
 
-const POS = () => {
+const POSCashier = () => {
   const [currentUser] = useState(sampleUsers[0]);
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,6 +53,12 @@ const POS = () => {
   const [errorAlert, setErrorAlert] = useState('');
   const [receiptItems, setReceiptItems] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoadingPurchases, setIsLoadingPurchases] = useState(false);
+const [purchaseHistory, setPurchaseHistory] = useState([]);
+
+ 
+
+  
   
   useEffect(() => {
     const fetchProducts = async () => {
@@ -73,6 +79,17 @@ const POS = () => {
     };
     fetchProducts();
   }, []);
+ const fetchPurchaseHistory = async () => {
+  try {
+    setIsLoadingPurchases(true);
+    const response = await API.get('/purchases');
+    setPurchaseHistory(response.data);
+  } catch (error) {
+    console.error('Error fetching purchase history:', error);
+  } finally {
+    setIsLoadingPurchases(false);
+  }
+};
 
   const userRole = {
     admin: { canRefund: true, canEditProduct: true },
@@ -136,86 +153,84 @@ const POS = () => {
   };
 
   const handleCompleteTransaction = async () => {
-    if (cart.length === 0) {
-      setErrorAlert('Cart is empty.');
-      return;
-    }
+  if (cart.length === 0) {
+    setErrorAlert('Cart is empty.');
+    return;
+  }
 
-    try {
-      setReceiptItems([...cart]);
-      
-      // Update stock in the backend
-      await Promise.all(cart.map(async (item) => {
-        const product = products.find(p => p.id === item.id);
-        if (product) {
-          // Structure the update payload explicitly
-          const updatePayload = {
-            name: product.name,
-            price: product.price,
-            stock: product.stock - item.quantity,
-            // Include any other required fields from your API
-            category_id: product.category_id,
-            unit: product.unit
-          };
-          
-          console.log('Sending update payload:', updatePayload); // Debug log
-          
-          const response = await API.put(`/products/${item.id}`, updatePayload);
-          console.log('Update response:', response.data); // Debug log
-        }
-      }));
+  const total = getTotal();
+  const cash = parseFloat(cashGiven) || 0;
 
-      // Save the purchase history
-      await API.post('/purchases', {
-        user_id: currentUser.id,
-        total_amount: getTotal(),
-        payment_method: selectedPayment,
-        cash_received: selectedPayment === 'cash' ? parseFloat(cashGiven) : null,
-        change: selectedPayment === 'cash' ? change : null,
-        items: cart.map(item => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity
-        }))
-      });
+  // ✅ Add this condition to block transaction
+  if (selectedPayment === 'cash' && cash < total) {
+    setErrorAlert(`❌ Insufficient cash. You need at least ₱${total.toFixed(2)} to proceed.`);
+    return;
+  }
 
-      // Refresh products after update
-      const response = await API.get('/products');
-      const validatedProducts = response.data.map(prod => ({
-        ...prod,
-        price: Number(prod.price),
-        stock: Number(prod.stock)
-      }));
-      setProducts(validatedProducts);
-      
-     
-      logActivity('Transaction complete');
-      setShowReceipt(true);
-      setErrorAlert('');
-    } catch (error) {
-      console.error('Error completing transaction:', error);
-      console.error('Error details:', error.response?.data); // Detailed error log
-      
-      // Handle validation errors
-      if (error.response?.status === 422) {
-        const serverErrors = error.response.data.errors || {};
-        const errorMessages = Object.values(serverErrors).flat().join(', ');
-        setErrorAlert(errorMessages || 'Validation failed');
-      } else {
-        setErrorAlert(error.response?.data?.message || 'Failed to complete transaction');
+  try {
+    setReceiptItems([...cart]);
+
+    await Promise.all(cart.map(async (item) => {
+      const product = products.find(p => p.id === item.id);
+      if (product) {
+        const updatePayload = {
+          name: product.name,
+          price: product.price,
+          stock: product.stock - item.quantity,
+          category_id: product.category_id,
+          unit: product.unit
+        };
+        await API.put(`/products/${item.id}`, updatePayload);
       }
+    }));
+
+    await API.post('/purchases', {
+      cashier_id: currentUser.id,
+      total_amount: total,
+      payment_method: selectedPayment,
+      cash_received: selectedPayment === 'cash' ? cash : null,
+      change: selectedPayment === 'cash' ? cash - total : null,
+      items: cart.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity
+      }))
+    });
+
+    const response = await API.get('/products');
+    const validatedProducts = response.data.map(prod => ({
+      ...prod,
+      price: Number(prod.price),
+      stock: Number(prod.stock)
+    }));
+    setProducts(validatedProducts);
+    await fetchPurchaseHistory();
+    logActivity('Transaction complete');
+    setShowReceipt(true);
+    setErrorAlert('');
+  } catch (error) {
+    console.error('Error completing transaction:', error);
+    if (error.response?.status === 422) {
+      const serverErrors = error.response.data.errors || {};
+      const errorMessages = Object.values(serverErrors).flat().join(', ');
+      setErrorAlert(errorMessages || 'Validation failed');
+    } else {
+      setErrorAlert(error.response?.data?.message || 'Failed to complete transaction');
     }
-  };
+  }
+};
+
 
   const getTotal = () => cart.reduce((sum, item) => sum + (Number(item.price) * item.quantity), 0);
 
-  const handleCashGiven = (val) => {
-    setCashGiven(val);
-    const total = getTotal();
-    const given = parseFloat(val) || 0;
-    setChange(given - total > 0 ? (given - total) : 0);
-  };
+ const handleCashGiven = (val) => {
+  setCashGiven(val);
+  const total = getTotal();
+  const given = parseFloat(val) || 0;
+  setChange(given - total > 0 ? (given - total) : 0);
+};
+
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -255,7 +270,12 @@ const POS = () => {
             {/* Header */}
             <div className="flex justify-between items-center mb-8">
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">POS</h1>
+                <h1 className="text-2xl font-bold mb-4">Point of Sale</h1>
+                {errorAlert && (
+                  <div className="mb-4 px-4 py-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                    {errorAlert}
+                  </div>
+                )}
               </div>
               <div className="text-gray-700 font-medium">
                 Logged in as: <span className="text-blue-600 font-semibold">{currentUser.username}</span>
@@ -418,12 +438,14 @@ const POS = () => {
                   <div>
                     <label className="block text-sm font-medium mb-2">Cash Received</label>
                     <input
-                      type="number"
-                      value={cashGiven}
-                      onChange={e => handleCashGiven(e.target.value)}
-                      className="w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="0.00"
-                    />
+  type="number"
+  value={cashGiven}
+  onChange={e => handleCashGiven(e.target.value)}
+  className={`w-full border rounded-lg px-3 py-2 ${
+    selectedPayment === 'cash' && parseFloat(cashGiven) < getTotal() ? 'border-red-500' : ''
+  }`}
+/>
+
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-2">Change Due</label>
@@ -469,8 +491,8 @@ const POS = () => {
 
         {/* Receipt Modal */}
         {showReceipt && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+            <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md relative z-50">
               {/* Modal Header */}
               <div className="flex justify-between items-center border-b p-4">
                 <h2 className="text-xl font-semibold">Transaction Receipt</h2>
@@ -582,4 +604,4 @@ const POS = () => {
   );
 };
 
-export default POS;
+export default POSCashier;
