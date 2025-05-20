@@ -61,12 +61,12 @@ const Dashboard = () => {
                 <SideMenu />
             </aside>
             {/* Main Content with left margin */}
-            <div className="flex-1 ml-60 flex flex-col">
+            <div className="flex-1 ml-60 flex flex-col min-h-screen">
                 <Header />
-                <main className="flex-1 p-6">
-                    <div className="max-w-7xl mx-auto">
+                <main className="flex-1 p-6 overflow-auto">
+                    <div className="max-w-full mx-auto">
                         {/* Header Section */}
-                        <div className="flex items-center gap-4 mb-8">
+                        <div className="flex items-center gap-4 mb-4">
                             <Store className="w-20 h-20 p-2 rounded-full border-2 border-white shadow-sm bg-white" />
                             <div>
                                 <h1 className="text-3xl font-bold text-gray-800">Vape Shop Admin Dashboard</h1>

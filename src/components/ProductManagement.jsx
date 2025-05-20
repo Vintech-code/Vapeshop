@@ -1,289 +1,378 @@
-import { useState } from 'react';
-import { FiPlus, FiTrash, FiEdit, FiCheck, FiX } from 'react-icons/fi';
+import { useState, useEffect } from 'react';
+import { FiPlus, FiX, FiSearch } from 'react-icons/fi';
+import { HiEyeSlash } from "react-icons/hi2";
+import SideMenu from '../layouts/SideMenu';
+import Header from '../layouts/Header';
+import API from '../api';
 
-const ProductManagement = ({ products, setProducts }) => {
-  const [newProduct, setNewProduct] = useState({
-    name: '',
-    price: '',
-    stock: '',
-    category: 'Paints'
-  });
-  const [editingId, setEditingId] = useState(null);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [validationErrors, setValidationErrors] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const validateForm = () => {
-    const errors = {};
-    const price = parseFloat(newProduct.price);
-    const stock = parseInt(newProduct.stock, 10);
-
-    if (!newProduct.name.trim()) errors.name = 'Name is required';
-    if (isNaN(price) || price <= 0) errors.price = 'Price must be positive';
-    if (isNaN(stock) || stock < 0) errors.stock = 'Stock cannot be negative';
-    
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleAddProduct = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-
-    try {
-      setIsLoading(true);
-      setError(null);
-      const response = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newProduct.name,
-          price: parseFloat(newProduct.price),
-          stock: parseInt(newProduct.stock, 10),
-          category: newProduct.category
-        })
-      });
-
-      if (!response.ok) throw new Error('Failed to add product');
-      
-      const addedProduct = await response.json();
-      setProducts([...products, addedProduct]);
-      setNewProduct({ name: '', price: '', stock: '', category: 'Paints' });
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleEdit = (product) => {
-    setEditingId(product.id);
-    setNewProduct({
-      ...product,
-      price: product.price.toString(),
-      stock: product.stock.toString()
+const ProductOverview = () => {
+    const [products, setProducts] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [newProduct, setNewProduct] = useState({
+        name: '',
+        category: '',
+        price: '',
+        stock: '',
+        image: null
     });
-  };
+    const [overviewProduct, setOverviewProduct] = useState(null);
+    const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
+    const [editCell, setEditCell] = useState({ row: null, col: null });
+    const [editValue, setEditValue] = useState('');
+    const [showHidden, setShowHidden] = useState(false);
 
-  const handleUpdate = async () => {
-    if (!validateForm()) return;
+    const columns = [
+        { key: 'id', label: 'ID' },
+        { key: 'name', label: 'Name' },
+        { key: 'category', label: 'Category' },
+        { key: 'price', label: 'Price' },
+        { key: 'stock', label: 'Stock' },
+        { key: 'image', label: 'Image' },
+        { key: 'actions', label: 'Actions' }
+    ];
 
-    try {
-      setIsLoading(true);
-      setError(null);
-      const response = await fetch(`/api/products/${editingId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newProduct.name,
-          price: parseFloat(newProduct.price),
-          stock: parseInt(newProduct.stock, 10),
-          category: newProduct.category
-        })
-      });
-
-      if (!response.ok) throw new Error('Failed to update product');
-      
-      const updatedProduct = await response.json();
-      setProducts(products.map(p => p.id === editingId ? updatedProduct : p));
-      setEditingId(null);
-      setNewProduct({ name: '', price: '', stock: '', category: 'Paints' });
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDelete = async (productId) => {
-    if (!window.confirm('Are you sure you want to delete this product?')) return;
-
-    try {
-      setIsLoading(true);
-      setError(null);
-      const response = await fetch(`/api/products/${productId}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) throw new Error('Failed to delete product');
-      
-      setProducts(products.filter(p => p.id !== productId));
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const getStockStatus = (stock) => {
-    if (stock === 0) return 'text-red-500';
-    if (stock < 5) return 'text-yellow-500';
-    return 'text-green-500';
-  };
-
-  return (
-    <div className="bg-gray-100 p-8 min-h-screen">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
-        {/* Add/Edit Product Form */}
-        <div className="bg-white p-6 rounded-xl shadow-lg">
-          <h2 className="text-3xl font-semibold mb-6 text-gray-800">
-            {editingId ? 'Edit Product' : 'Add New Product'}
-          </h2>
-
-          {showSuccess && (
-            <div className="mb-4 p-3 bg-green-200 text-green-700 rounded-lg">
-              Product {editingId ? 'updated' : 'added'} successfully!
-            </div>
-          )}
-
-          {error && (
-            <div className="mb-4 p-3 bg-red-200 text-red-700 rounded-lg">
-              Error: {error}
-            </div>
-          )}
-
-          <form onSubmit={editingId ? handleUpdate : handleAddProduct} className="space-y-6">
-            
-            {/* Product Name */}
-            <div>
-              <input
-                type="text"
-                className={`w-full p-3 border rounded-lg ${validationErrors.name ? 'border-red-500' : 'border-gray-300'} focus:outline-none`}
-                placeholder="Product Name"
-                value={newProduct.name}
-                onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
-              />
-              {validationErrors.name && <p className="text-red-500 text-sm">{validationErrors.name}</p>}
-            </div>
-
-            {/* Price */}
-            <div>
-              <input
-                type="number"
-                step="0.01"
-                className={`w-full p-3 border rounded-lg ${validationErrors.price ? 'border-red-500' : 'border-gray-300'} focus:outline-none`}
-                placeholder="Price"
-                value={newProduct.price}
-                onChange={e => setNewProduct({ ...newProduct, price: e.target.value })}
-              />
-              {validationErrors.price && <p className="text-red-500 text-sm">{validationErrors.price}</p>}
-            </div>
-
-            {/* Stock */}
-            <div>
-              <input
-                type="number"
-                className={`w-full p-3 border rounded-lg ${validationErrors.stock ? 'border-red-500' : 'border-gray-300'} focus:outline-none`}
-                placeholder="Stock Quantity"
-                value={newProduct.stock}
-                onChange={e => setNewProduct({ ...newProduct, stock: e.target.value })}
-              />
-              {validationErrors.stock && <p className="text-red-500 text-sm">{validationErrors.stock}</p>}
-            </div>
-
-            {/* Category */}
-            <div>
-              <select
-                className="w-full p-3 border rounded-lg focus:outline-none"
-                value={newProduct.category}
-                onChange={e => setNewProduct({ ...newProduct, category: e.target.value })}
-              >
-                <option value=""></option>
-              
-              </select>
-            </div>
-
-            {/* Submit Button */}
-            <div>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className={`w-full p-3 rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {isLoading ? 'Loading...' : editingId ? 'Update Product' : 'Add Product'}
-              </button>
-            </div>
-
-            {/* Cancel Button if Editing */}
-            {editingId && (
-              <div className="text-center mt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingId(null);
-                    setNewProduct({ name: '', price: '', stock: '', category: 'Paints' });
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <FiX /> Cancel Editing
-                </button>
-              </div>
-            )}
-          </form>
-        </div>
-
-        {/* Product Inventory */}
-        <div className="bg-white p-6 rounded-xl shadow-lg">
-          <h2 className="text-3xl font-semibold mb-6 text-gray-800">Manage Products</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full table-auto">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="py-4 px-6 text-left text-gray-600">Product</th>
-                  <th className="py-4 px-6 text-left text-gray-600">Category</th>
-                  <th className="py-4 px-6 text-left text-gray-600">Price</th>
-                  <th className="py-4 px-6 text-left text-gray-600">Stock</th>
-                  <th className="py-4 px-6 text-left text-gray-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map(product => (
-                  <tr key={product.id} className="border-t hover:bg-gray-50">
-                    <td className="py-4 px-6">{product.name}</td>
-                    <td className="py-4 px-6">
-                      <span className="text-sm font-semibold text-gray-600">{product.category}</span>
-                    </td>
-                    <td className="py-4 px-6">${product.price.toFixed(2)}</td>
-                    <td className={`py-4 px-6 font-semibold ${getStockStatus(product.stock)}`}>
-                      {product.stock}
-                    </td>
-                    <td className="py-4 px-6 flex gap-3">
-                      <button
-                        onClick={() => handleEdit(product)}
-                        className="text-blue-500 hover:text-blue-700"
-                      >
-                        <FiEdit />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(product.id)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <FiTrash />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {products.length === 0 && (
-              <div className="py-6 text-center text-gray-500">
-                No products found. Start by adding your first product!
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    const fetchProducts = async () => {
+  try {
+    const response = await API.get('/products');
+    const visibleProducts = response.data.filter(product => 
+      showHidden ? product.is_hidden : !product.is_hidden
+    );
+    setProducts(visibleProducts);
+  } catch (error) {
+    console.error('Error fetching products:', error);
+  } finally {
+    setIsLoading(false);
+  }
 };
 
-export default ProductManagement;
+   useEffect(() => {
+  fetchProducts();
+}, [showHidden]);
+
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentItems = products.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(products.length / itemsPerPage);
+
+    const handleHideProduct = async (id) => {
+  try {
+    const product = products.find((p) => p.id === id);
+    if (!product) return;
+
+    const updatedProduct = {
+      name: product.name,
+      category: product.category,
+      price: product.price,
+      stock: product.stock,
+      is_hidden: true, // toggle this to true
+      credibility: product.credibility ?? null,
+    };
+
+    await API.put(`/products/${id}`, updatedProduct);
+
+    // Optionally update the local state to hide product from view
+    setProducts(products.filter((p) => p.id !== id));
+  } catch (error) {
+    console.error('Error hiding product:', error);
+  }
+};
+
+
+
+    const handleOverview = (product) => {
+        setOverviewProduct(product);
+    };
+
+    const handleImageClick = () => {
+        setIsImageModalOpen(true);
+    };
+
+    const handleAddProduct = async () => {
+    const formData = new FormData();
+    formData.append('name', newProduct.name);
+    formData.append('category', newProduct.category);
+    formData.append('price', parseFloat(newProduct.price));
+    formData.append('stock', parseInt(newProduct.stock));
+    
+    // Make sure image is appended correctly
+    if (newProduct.image) {
+        formData.append('image', newProduct.image);
+    } else {
+        alert('Please select an image');
+        return;
+    }
+
+    try {
+        const response = await API.post('/products', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        
+        // Refresh the product list
+        fetchProducts();
+        // Reset form
+        setNewProduct({ name: '', category: '', price: '', stock: '', image: null });
+        setIsModalOpen(false);
+    } catch (error) {
+        console.error('Error adding product:', error);
+    }
+};
+
+    const handleCellDoubleClick = (rowIdx, colKey) => {
+        if (colKey === 'id' || colKey === 'image') return;
+        setEditCell({ row: rowIdx, col: colKey });
+        setEditValue(products[rowIdx][colKey]);
+    };
+
+    const handleCellChange = (e) => {
+        setEditValue(e.target.value);
+    };
+
+    const handleCellBlur = async (rowIdx, colKey) => {
+        const updatedProduct = { ...products[rowIdx] };
+        updatedProduct[colKey] = editValue;
+        try {
+            await API.put(`/api/products/${updatedProduct.id}`, updatedProduct);
+            fetchProducts();
+        } catch (error) {
+            console.error('Error updating product:', error);
+        }
+        setEditCell({ row: null, col: null });
+    };
+
+    const handleCellKeyDown = (e, rowIdx, colKey) => {
+        if (e.key === 'Enter') {
+            handleCellBlur(rowIdx, colKey);
+        }
+    };
+
+    return (
+        <div className="flex min-h-screen bg-gray-100">
+            {/* Fixed SideMenu */}
+            <div className="h-screen w-64 fixed top-0 left-0 z-30 bg-white border-r shadow-lg">
+                <SideMenu />
+            </div>
+            {/* Main Content */}
+            <div className="flex-1 flex flex-col ml-64">
+                <Header />
+                <main className="flex-1 p-6">
+                    <div className="max-w-7xl mx-auto">
+                        <div className="flex justify-between items-center mb-6">
+  <h1 className="text-3xl font-bold text-gray-800">Product Overview</h1>
+  <div className="flex gap-2">
+    <button
+      onClick={() => setShowHidden(!showHidden)}
+      className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 flex items-center gap-2 shadow-md"
+    >
+      <HiEyeSlash className="h-5 w-5" />
+      {showHidden ? 'Show Active Products' : 'Show Hidden Products'}
+    </button>
+    <button
+      onClick={() => setIsModalOpen(true)}
+      className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2 shadow-md"
+    >
+      <FiPlus /> Add New Product
+    </button>
+  </div>
+</div>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full bg-white rounded shadow">
+                                <thead>
+                                    <tr>
+                                        {columns.map(col => (
+                                            <th key={col.key} className="px-4 py-2 border-b text-left bg-blue-100">{col.label}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {isLoading ? (
+                                        <tr>
+                                            <td colSpan={columns.length} className="text-center py-4 text-gray-500">Loading products...</td>
+                                        </tr>
+                                    ) : currentItems.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={columns.length} className="text-center py-4 text-gray-500">No products available.</td>
+                                        </tr>
+                                    ) : (
+                                        currentItems.map((product, rowIdx) => (
+                                            <tr key={product.id} className="hover:bg-blue-50">
+                                                {columns.map(col => (
+                                                    <td
+                                                        key={col.key}
+                                                        className="px-4 py-2 border-b"
+                                                        onDoubleClick={() => handleCellDoubleClick(indexOfFirstItem + rowIdx, col.key)}
+                                                    >
+                                                        {editCell.row === indexOfFirstItem + rowIdx && editCell.col === col.key ? (
+                                                            <input
+                                                                type={col.key === 'price' || col.key === 'stock' ? 'number' : 'text'}
+                                                                value={editValue}
+                                                                autoFocus
+                                                                onChange={handleCellChange}
+                                                                onBlur={() => handleCellBlur(indexOfFirstItem + rowIdx, col.key)}
+                                                                onKeyDown={e => handleCellKeyDown(e, indexOfFirstItem + rowIdx, col.key)}
+                                                                className="border rounded px-2 py-1 w-full"
+                                                            />
+                                                        ) : col.key === 'image' ? (
+                                                            product.image_url ? (
+                                                               <img
+                                                                    src={`http://localhost:8000/storage/${product.image}`}
+                                                                    alt={product.name}
+                                                                    className="w-12 h-12 object-cover rounded cursor-pointer"
+                                                                    onError={(e) => {
+                                                                        e.target.onerror = null;
+                                                                        e.target.src = '/placeholder.jpg';
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <span>No image</span>
+                                                            )
+                                                        ) : col.key === 'actions' ? (
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    onClick={() => handleOverview(product)}
+                                                                    className="text-green-500 hover:text-green-700 flex items-center gap-1"
+                                                                    title="Overview Product"
+                                                                >
+                                                                    <FiSearch /> Overview
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleHideProduct(product.id)}
+
+                                                                    className="text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                                                                    title="Hide Product"
+                                                                >
+                                                                    <HiEyeSlash className="h-5 w-5" />
+                                                                    Hide
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            product[col.key]
+                                                        )}
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                        {/* Pagination Controls */}
+                        <div className="flex justify-center mt-8 space-x-2">
+                            <button
+                                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className={`px-4 py-2 rounded-lg ${currentPage === 1 ? 'bg-gray-300 text-gray-500' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+                            >
+                                Prev
+                            </button>
+                            {[...Array(totalPages)].map((_, idx) => (
+                                <button
+                                    key={idx + 1}
+                                    onClick={() => setCurrentPage(idx + 1)}
+                                    className={`px-4 py-2 rounded-lg ${currentPage === idx + 1 ? 'bg-blue-700 text-white' : 'bg-gray-200 text-gray-700 hover:bg-blue-200'}`}
+                                >
+                                    {idx + 1}
+                                </button>
+                            ))}
+                            <button
+                                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className={`px-4 py-2 rounded-lg ${currentPage === totalPages ? 'bg-gray-300 text-gray-500' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                </main>
+            </div>
+            {isModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div
+                        className="fixed inset-0"
+                        style={{
+                            background: 'rgba(0,0,0,0.15)',
+                            backdropFilter: 'blur(2px)',
+                            cursor: 'pointer',
+                        }}
+                        onClick={() => setIsModalOpen(false)}
+                    ></div>
+                    <div
+                        className="relative bg-white rounded-lg shadow-lg p-6 w-full max-w-md z-10"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-bold text-gray-800">Add New Product</h2>
+                            <button
+                                onClick={() => setIsModalOpen(false)}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
+                                <FiX size={24} />
+                            </button>
+                        </div>
+                        <div className="space-y-4">
+                            <input
+                                type="text"
+                                placeholder="Product Name"
+                                value={newProduct.name}
+                                onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                                className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                            />
+                            <input
+                                type="text"
+                                placeholder="Category"
+                                value={newProduct.category}
+                                onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                                className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                            />
+                            <input
+                                type="number"
+                                placeholder="Price"
+                                value={newProduct.price}
+                                onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                                className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                                min="0"
+                                step="0.01"
+                            />
+                            <input
+                                type="number"
+                                placeholder="Stock"
+                                value={newProduct.stock}
+                                onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
+                                className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                                min="0"
+                            />
+                            <div className="flex flex-col">
+                                <label className="mb-2 text-sm font-medium text-gray-700">Product Image</label>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => setNewProduct({ ...newProduct, image: e.target.files[0] })}
+                                    className="w-full p-2 border rounded-lg"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end mt-6">
+                            <button
+                                onClick={handleAddProduct}
+                                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+                                disabled={!newProduct.name || !newProduct.category || !newProduct.price || !newProduct.stock}
+                            >
+                                Add Product
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default ProductOverview;

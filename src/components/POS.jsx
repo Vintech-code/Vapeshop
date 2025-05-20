@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SideMenu from '../layouts/SideMenu';
+import Header from '../layouts/Header';
 import API from '../api';
 import { FiX, FiArrowUp, FiArrowDown, FiPrinter } from 'react-icons/fi';
 
@@ -28,7 +29,7 @@ class ErrorBoundary extends React.Component {
 
 const sampleUsers = [
   { id: 1, username: 'admin', role: 'admin' },
-  { id: 2, username: 'cashier1', role: 'cashier' }
+  
 ];
 
 const paymentMethods = [
@@ -37,7 +38,7 @@ const paymentMethods = [
 ];
 
 const POS = () => {
-  const [currentUser, setCurrentUser] = useState(sampleUsers[0]);
+  const [currentUser] = useState(sampleUsers[0]);
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [cart, setCart] = useState([]);
@@ -164,6 +165,21 @@ const POS = () => {
         }
       }));
 
+      // Save the purchase history
+      await API.post('/purchases', {
+        user_id: currentUser.id,
+        total_amount: getTotal(),
+        payment_method: selectedPayment,
+        cash_received: selectedPayment === 'cash' ? parseFloat(cashGiven) : null,
+        change: selectedPayment === 'cash' ? change : null,
+        items: cart.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity
+        }))
+      });
+
       // Refresh products after update
       const response = await API.get('/products');
       const validatedProducts = response.data.map(prod => ({
@@ -240,18 +256,12 @@ const POS = () => {
             <div className="flex justify-between items-center mb-8">
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">POS</h1>
-                
               </div>
-              <select
-                value={currentUser.id}
-                onChange={e => setCurrentUser(sampleUsers.find(u => u.id === Number(e.target.value)))}
-                className="border rounded-lg px-4 py-2 w-48 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {sampleUsers.map(u => (
-                  <option key={u.id} value={u.id}>{u.username}</option>
-                ))}
-              </select>
+              <div className="text-gray-700 font-medium">
+                Logged in as: <span className="text-blue-600 font-semibold">{currentUser.username}</span>
+              </div>
             </div>
+
 
             {/* Product Search and Selection */}
             <div className="bg-white rounded-xl shadow-sm p-6 mb-6">

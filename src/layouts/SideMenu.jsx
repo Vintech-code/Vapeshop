@@ -73,7 +73,7 @@ const SideMenu = () => {
           </Link>
           {/* Removed Current Items link */}
           <Link
-            to="/reports"
+            to="/productreport"
             className={`block px-4 py-2 rounded-lg hover:bg-gray-700 ${
               isActive('/reports') ? 'bg-gray-700' : ''
             } flex items-center gap-2`}

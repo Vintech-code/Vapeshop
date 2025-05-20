@@ -12,6 +12,8 @@ import InventoryManagement from './components/InventoryManagement';
 import PurchaseHistory from './components/PurchaseHistory';
 import Category from './components/Category';
 import POS from './components/POS';
+import ProductReport from './components/ProductReport';
+
 
 
 function App() {
@@ -31,6 +33,7 @@ function App() {
         <Route path="/purchase-history" element={<PurchaseHistory />} />
         <Route path="/categories" element={<Category />} />
         <Route path="/pos" element={<POS />} />
+        <Route path="/productreport" element={<ProductReport />} />
       </Routes>
     </Router>
   );

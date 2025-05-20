@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { FiTrash, FiPlus, FiX, FiEye } from 'react-icons/fi';
+import { FiPlus, FiX, FiSearch } from 'react-icons/fi';
+import { HiEyeSlash } from "react-icons/hi2";
 import SideMenu from '../layouts/SideMenu';
 import Header from '../layouts/Header';
 import API from '../api';
@@ -13,7 +14,7 @@ const ProductOverview = () => {
         category: '',
         price: '',
         stock: '',
-        image: ''
+        image: null
     });
     const [overviewProduct, setOverviewProduct] = useState(null);
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
@@ -21,6 +22,7 @@ const ProductOverview = () => {
     const itemsPerPage = 10;
     const [editCell, setEditCell] = useState({ row: null, col: null });
     const [editValue, setEditValue] = useState('');
+    const [showHidden, setShowHidden] = useState(false);
 
     const columns = [
         { key: 'id', label: 'ID' },
@@ -29,40 +31,56 @@ const ProductOverview = () => {
         { key: 'price', label: 'Price' },
         { key: 'stock', label: 'Stock' },
         { key: 'image', label: 'Image' },
-        { key: 'features', label: 'Features' },
         { key: 'actions', label: 'Actions' }
     ];
 
     const fetchProducts = async () => {
-        try {
-            const response = await API.get('http://localhost:8000/api/products');
-            setProducts(response.data);
-        } catch (error) {
-            console.error('Error fetching products:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+  try {
+    const response = await API.get('/products');
+    const visibleProducts = response.data.filter(product => 
+      showHidden ? product.is_hidden : !product.is_hidden
+    );
+    setProducts(visibleProducts);
+  } catch (error) {
+    console.error('Error fetching products:', error);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-    useEffect(() => {
-        fetchProducts();
-    }, []);
+   useEffect(() => {
+  fetchProducts();
+}, [showHidden]);
 
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
     const currentItems = products.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(products.length / itemsPerPage);
 
-    const handleDelete = async (id) => {
-        if (window.confirm('Are you sure you want to delete this product?')) {
-            try {
-                await API.delete(`http://localhost:8000/api/products/${id}`);
-                fetchProducts();
-            } catch (error) {
-                console.error('Error deleting product:', error);
-            }
-        }
+    const handleHideProduct = async (id) => {
+  try {
+    const product = products.find((p) => p.id === id);
+    if (!product) return;
+
+    const updatedProduct = {
+      name: product.name,
+      category: product.category,
+      price: product.price,
+      stock: product.stock,
+      is_hidden: true, // toggle this to true
+      credibility: product.credibility ?? null,
     };
+
+    await API.put(`/products/${id}`, updatedProduct);
+
+    // Optionally update the local state to hide product from view
+    setProducts(products.filter((p) => p.id !== id));
+  } catch (error) {
+    console.error('Error hiding product:', error);
+  }
+};
+
+
 
     const handleOverview = (product) => {
         setOverviewProduct(product);
@@ -72,28 +90,37 @@ const ProductOverview = () => {
         setIsImageModalOpen(true);
     };
 
-   const handleAddProduct = async () => {
-  const formData = new FormData();
-  formData.append('name', newProduct.name);
-  formData.append('category', newProduct.category);
-  formData.append('price', newProduct.price);
-  formData.append('stock', newProduct.stock);
-  if (newProduct.image) {
-    formData.append('image', newProduct.image);
-  }
+    const handleAddProduct = async () => {
+    const formData = new FormData();
+    formData.append('name', newProduct.name);
+    formData.append('category', newProduct.category);
+    formData.append('price', parseFloat(newProduct.price));
+    formData.append('stock', parseInt(newProduct.stock));
+    
+    // Make sure image is appended correctly
+    if (newProduct.image) {
+        formData.append('image', newProduct.image);
+    } else {
+        alert('Please select an image');
+        return;
+    }
 
-  try {
-    await API.post('http://localhost:8000/api/products', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    setNewProduct({ name: '', category: '', price: '', stock: '', image: '' });
-    setIsModalOpen(false);
-    fetchProducts();
-  } catch (error) {
-    console.error('Error adding product:', error);
-  }
+    try {
+        const response = await API.post('/products', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        
+        // Refresh the product list
+        fetchProducts();
+        // Reset form
+        setNewProduct({ name: '', category: '', price: '', stock: '', image: null });
+        setIsModalOpen(false);
+    } catch (error) {
+        console.error('Error adding product:', error);
+    }
 };
-
 
     const handleCellDoubleClick = (rowIdx, colKey) => {
         if (colKey === 'id' || colKey === 'image') return;
@@ -109,7 +136,7 @@ const ProductOverview = () => {
         const updatedProduct = { ...products[rowIdx] };
         updatedProduct[colKey] = editValue;
         try {
-            await API.put(`http://localhost:8000/api/products/${updatedProduct.id}`, updatedProduct);
+            await API.put(`/api/products/${updatedProduct.id}`, updatedProduct);
             fetchProducts();
         } catch (error) {
             console.error('Error updating product:', error);
@@ -135,14 +162,23 @@ const ProductOverview = () => {
                 <main className="flex-1 p-6">
                     <div className="max-w-7xl mx-auto">
                         <div className="flex justify-between items-center mb-6">
-                            <h1 className="text-3xl font-bold text-gray-800">Product Overview</h1>
-                            <button
-                                onClick={() => setIsModalOpen(true)}
-                                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2 shadow-md"
-                            >
-                                <FiPlus /> Add New Product
-                            </button>
-                        </div>
+  <h1 className="text-3xl font-bold text-gray-800">Product Overview</h1>
+  <div className="flex gap-2">
+    <button
+      onClick={() => setShowHidden(!showHidden)}
+      className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 flex items-center gap-2 shadow-md"
+    >
+      <HiEyeSlash className="h-5 w-5" />
+      {showHidden ? 'Show Active Products' : 'Show Hidden Products'}
+    </button>
+    <button
+      onClick={() => setIsModalOpen(true)}
+      className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2 shadow-md"
+    >
+      <FiPlus /> Add New Product
+    </button>
+  </div>
+</div>
                         <div className="overflow-x-auto">
                             <table className="min-w-full bg-white rounded shadow">
                                 <thead>
@@ -181,13 +217,19 @@ const ProductOverview = () => {
                                                                 className="border rounded px-2 py-1 w-full"
                                                             />
                                                         ) : col.key === 'image' ? (
-                                                            <img
-                                                                src={product.image ? `http://localhost:8000/storage/${product.image}` : '/placeholder.jpg'}
-                                                                alt={product.name}
-                                                                className="w-12 h-12 object-cover rounded cursor-pointer"
+                                                            product.image_url ? (
+                                                               <img
+                                                                    src={`http://localhost:8000/storage/${product.image}`}
+                                                                    alt={product.name}
+                                                                    className="w-12 h-12 object-cover rounded cursor-pointer"
+                                                                    onError={(e) => {
+                                                                        e.target.onerror = null;
+                                                                        e.target.src = '/placeholder.jpg';
+                                                                    }}
                                                                 />
-                                                        ) : col.key === 'features' ? (
-                                                            Array.isArray(product.features) ? product.features.join(', ') : product.features
+                                                            ) : (
+                                                                <span>No image</span>
+                                                            )
                                                         ) : col.key === 'actions' ? (
                                                             <div className="flex gap-2">
                                                                 <button
@@ -195,14 +237,16 @@ const ProductOverview = () => {
                                                                     className="text-green-500 hover:text-green-700 flex items-center gap-1"
                                                                     title="Overview Product"
                                                                 >
-                                                                    <FiEye /> Overview
+                                                                    <FiSearch /> Overview
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => handleDelete(product.id)}
-                                                                    className="text-red-500 hover:text-red-700 flex items-center gap-1"
-                                                                    title="Delete Product"
+                                                                    onClick={() => handleHideProduct(product.id)}
+
+                                                                    className="text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                                                                    title="Hide Product"
                                                                 >
-                                                                    <FiTrash /> Delete
+                                                                    <HiEyeSlash className="h-5 w-5" />
+                                                                    Hide
                                                                 </button>
                                                             </div>
                                                         ) : (
@@ -247,7 +291,6 @@ const ProductOverview = () => {
             </div>
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center">
-                    {/* Blurred Background with onClick to close */}
                     <div
                         className="fixed inset-0"
                         style={{
@@ -257,10 +300,9 @@ const ProductOverview = () => {
                         }}
                         onClick={() => setIsModalOpen(false)}
                     ></div>
-                    {/* Modal Content */}
                     <div
                         className="relative bg-white rounded-lg shadow-lg p-6 w-full max-w-md z-10"
-                        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
+                        onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-xl font-bold text-gray-800">Add New Product</h2>
@@ -278,6 +320,7 @@ const ProductOverview = () => {
                                 value={newProduct.name}
                                 onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
                                 className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
                             />
                             <input
                                 type="text"
@@ -285,6 +328,7 @@ const ProductOverview = () => {
                                 value={newProduct.category}
                                 onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
                                 className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
                             />
                             <input
                                 type="number"
@@ -292,6 +336,9 @@ const ProductOverview = () => {
                                 value={newProduct.price}
                                 onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
                                 className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                                min="0"
+                                step="0.01"
                             />
                             <input
                                 type="number"
@@ -299,18 +346,24 @@ const ProductOverview = () => {
                                 value={newProduct.stock}
                                 onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
                                 className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                                min="0"
                             />
-                            <input
-  type="file"
-  accept="image/*"
-  onChange={(e) => setNewProduct({ ...newProduct, image: e.target.files[0] })}
-/>
-
+                            <div className="flex flex-col">
+                                <label className="mb-2 text-sm font-medium text-gray-700">Product Image</label>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => setNewProduct({ ...newProduct, image: e.target.files[0] })}
+                                    className="w-full p-2 border rounded-lg"
+                                />
+                            </div>
                         </div>
                         <div className="flex justify-end mt-6">
                             <button
                                 onClick={handleAddProduct}
                                 className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+                                disabled={!newProduct.name || !newProduct.category || !newProduct.price || !newProduct.stock}
                             >
                                 Add Product
                             </button>
