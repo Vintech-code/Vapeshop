@@ -138,7 +138,7 @@ const ProductReport = () => {
 
   const getStockStatusClass = (stock) => {
     if (stock <= 0) return 'bg-red-100 text-red-800';
-    if (stock <= 5) return 'bg-yellow-100 text-yellow-800';
+    if (stock <= 50) return 'bg-yellow-100 text-yellow-800';
     return 'bg-green-100 text-green-800';
   };
 
@@ -289,7 +289,7 @@ const ProductReport = () => {
         <Header />
         
         <main className="flex-1 p-6">
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-full mx-auto">
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-3xl font-bold text-gray-800">Product Report</h1>
               
@@ -525,10 +525,10 @@ const ProductReport = () => {
                           <td className="px-6 py-4 whitespace-nowrap">
                             {product.image_url ? (
                               <img
-  src={`http://localhost:8000${product.image_url}`}
-  alt={product.name}
-  className="w-10 h-10 object-cover rounded"
-/>
+                                src={`http://localhost:8000${product.image_url}`}
+                                alt={product.name}
+                                className="w-10 h-10 object-cover rounded"
+                              />
 
                             ) : (
                               <span className="text-xs text-gray-400">No image</span>

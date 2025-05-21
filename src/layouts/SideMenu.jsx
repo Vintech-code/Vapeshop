@@ -87,7 +87,7 @@ const SideMenu = () => {
             <FiShoppingCart /> POS
           </Link>
           <Link
-            to="/categories"
+            to="/productoverviewcashier"
             className={`block px-4 py-2 rounded-lg hover:bg-gray-700 ${
               isActive('/categories') ? 'bg-gray-700' : ''
             } flex items-center gap-2`}

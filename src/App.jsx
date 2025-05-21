@@ -30,7 +30,7 @@ function App() {
         <Route path="/current-management" element={<CurrentManagement />} />
         <Route path="/inventory-management" element={<InventoryManagement />} />
         <Route path="/purchase-history" element={<PurchaseHistory />} />
-        <Route path="/categories" element={<ProductOverviewCashier />} />
+        <Route path="/productoverviewcashier" element={<ProductOverviewCashier />} />
         <Route path="/productreport" element={<ProductReport />} />
       </Routes>
     </Router>

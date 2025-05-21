@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FiPlus, FiX, FiSearch } from 'react-icons/fi';
-import { ToastContainer, toast } from 'react-toastify'; // Fixed import
+import { ToastContainer, toast } from 'react-toastify';
 import { HiEyeSlash } from "react-icons/hi2";
 import SideMenu from '../layouts/SideMenu';
 import Header from '../layouts/Header';
@@ -24,6 +24,7 @@ const ProductOverview = () => {
     const [editCell, setEditCell] = useState({ row: null, col: null });
     const [editValue, setEditValue] = useState('');
     const [showHidden, setShowHidden] = useState(false);
+    const [restockQuantities, setRestockQuantities] = useState({});
 
     const columns = [
         { key: 'id', label: 'ID' },
@@ -35,25 +36,32 @@ const ProductOverview = () => {
         { key: 'actions', label: 'Actions' }
     ];
 
-  const fetchProducts = async (showHiddenState = false) => {
-  setIsLoading(true);
-  try {
-    const url = showHiddenState ? '/products?showHidden=true' : '/products';
-    const response = await API.get(url);
-    setProducts(response.data);
-  } catch (error) {
-    console.error('Error fetching products:', error);
-  } finally {
-    setIsLoading(false);
-  }
-};
+    const fetchProducts = async (showHiddenState = showHidden) => {
+        setIsLoading(true);
+        try {
+            const url = showHiddenState ? '/products?showHidden=true' : '/products';
+            const response = await API.get(url);
+            setProducts(response.data);
+        } catch (error) {
+            console.error('Error fetching products:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
+    useEffect(() => {
+        const interval = setInterval(() => {
+            fetchProducts();
+        }, 30000);
 
-useEffect(() => {
-  setCurrentPage(1);
-  setIsLoading(true);
-  fetchProducts(showHidden);
-}, [showHidden]);
+        return () => clearInterval(interval);
+    }, [showHidden]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+        setIsLoading(true);
+        fetchProducts(showHidden);
+    }, [showHidden]);
 
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -61,32 +69,56 @@ useEffect(() => {
     const totalPages = Math.ceil(products.length / itemsPerPage);
 
     const handleHideProduct = async (id) => {
-  try {
-    await API.put(`/products/${id}`, { is_hidden: true });
-    toast.success('Product hidden successfully!');
-    fetchProducts(showHidden); // Refresh list after hiding
-  } catch (error) {
-    console.error('Error hiding product:', error);
-    toast.error('Failed to hide product');
-  }
-};
-// New: Unhide product
-const handleUnhideProduct = async (product) => {
-  if (!product?.id) {
-    console.error("Product ID is missing");
-    return;
-  }
+        try {
+            await API.put(`/products/${id}`, { is_hidden: true });
+            toast.success('Product hidden successfully!');
+            fetchProducts(showHidden);
+        } catch (error) {
+            console.error('Error hiding product:', error);
+            toast.error('Failed to hide product');
+        }
+    };
 
-  try {
-    await API.put(`/products/${product.id}`, { is_hidden: false });
-    toast.success('Product unhidden successfully!');
-    fetchProducts(showHidden); // Refresh list
-  } catch (error) {
-    console.error("Error unhiding product:", error);
-    toast.error('Failed to unhide product');
-  }
-};
+    const handleUnhideProduct = async (product) => {
+        if (!product?.id) {
+            console.error("Product ID is missing");
+            return;
+        }
 
+        try {
+            await API.put(`/products/${product.id}`, { is_hidden: false });
+            toast.success('Product unhidden successfully!');
+            fetchProducts(showHidden);
+        } catch (error) {
+            console.error("Error unhiding product:", error);
+            toast.error('Failed to unhide product');
+        }
+    };
+
+    const handleRestock = async (productId) => {
+        const quantity = restockQuantities[productId] || 0;
+        if (quantity <= 0) {
+            toast.error('Please enter a valid quantity');
+            return;
+        }
+
+        try {
+            await API.put(`/products/${productId}/restock`, { quantity });
+            toast.success('Product restocked successfully!');
+            fetchProducts(showHidden);
+            setRestockQuantities(prev => ({ ...prev, [productId]: 0 }));
+        } catch (error) {
+            console.error('Error restocking product:', error);
+            toast.error('Failed to restock product');
+        }
+    };
+
+    const handleRestockQuantityChange = (productId, value) => {
+        setRestockQuantities(prev => ({
+            ...prev,
+            [productId]: parseInt(value) || 0
+        }));
+    };
 
     const handleOverview = (product) => {
         setOverviewProduct(product);
@@ -96,7 +128,7 @@ const handleUnhideProduct = async (product) => {
         setIsImageModalOpen(true);
     };
 
-     const handleAddProduct = async () => {
+    const handleAddProduct = async () => {
         const formData = new FormData();
         formData.append('name', newProduct.name);
         formData.append('category', newProduct.category);
@@ -192,25 +224,25 @@ const handleUnhideProduct = async (product) => {
             <div className="flex-1 flex flex-col ml-64">
                 <Header />
                 <main className="flex-1 p-6">
-                    <div className="max-w-7xl mx-auto">
+                   <div className="max-w-full mx-auto">
                         <div className="flex justify-between items-center mb-6">
-  <h1 className="text-3xl font-bold text-gray-800">Product Overview</h1>
-  <div className="flex gap-2">
-    <button
-      onClick={() => setShowHidden(!showHidden)}
-      className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 flex items-center gap-2 shadow-md"
-    >
-      <HiEyeSlash className="h-5 w-5" />
-      {showHidden ? 'Show Active Products' : 'Show Hidden Products'}
-    </button>
-    <button
-      onClick={() => setIsModalOpen(true)}
-      className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2 shadow-md"
-    >
-      <FiPlus /> Add New Product
-    </button>
-  </div>
-</div>
+                            <h1 className="text-3xl font-bold text-gray-800">Product Overview</h1>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setShowHidden(!showHidden)}
+                                    className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 flex items-center gap-2 shadow-md"
+                                >
+                                    <HiEyeSlash className="h-5 w-5" />
+                                    {showHidden ? 'Show Active Products' : 'Show Hidden Products'}
+                                </button>
+                                <button
+                                    onClick={() => setIsModalOpen(true)}
+                                    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2 shadow-md"
+                                >
+                                    <FiPlus /> Add New Product
+                                </button>
+                            </div>
+                        </div>
                         <div className="overflow-x-auto">
                             <table className="min-w-full bg-white rounded shadow">
                                 <thead>
@@ -234,76 +266,91 @@ const handleUnhideProduct = async (product) => {
                                             <tr key={product.id} className="hover:bg-blue-50">
                                                 {columns.map(col => (
                                                     <td
-                                                key={col.key}
-                                                className="px-4 py-2 border-b"
-                                                onDoubleClick={() => handleCellDoubleClick(indexOfFirstItem + rowIdx, col.key)}
-                                                >
-                                                {editCell.row === indexOfFirstItem + rowIdx && editCell.col === col.key ? (
-                                                    <input
-                                                    type={col.key === 'price' || col.key === 'stock' ? 'number' : 'text'}
-                                                    value={editValue}
-                                                    autoFocus
-                                                    onChange={handleCellChange}
-                                                    onBlur={() => handleCellBlur(indexOfFirstItem + rowIdx, col.key)}
-                                                    onKeyDown={e => handleCellKeyDown(e, indexOfFirstItem + rowIdx, col.key)}
-                                                    className="border rounded px-2 py-1 w-full"
-                                                    />
-                                                ) : col.key === 'image' ? (
-                                                    product.image_url ? (
-                                                    <img
-                                                        src={`http://localhost:8000/storage/${product.image}`}
-                                                        alt={product.name}
-                                                        className="w-12 h-12 object-cover rounded cursor-pointer"
-                                                        onError={(e) => {
-                                                        e.target.onerror = null;
-                                                        e.target.src = '/placeholder.jpg';
-                                                        }}
-                                                    />
-                                                    ) : (
-                                                    <span>No image</span>
-                                                    )
-                                                ) : col.key === 'actions' ? (
-                                                   <div className="flex gap-2">
-    {!showHidden ? (
-      // Show Hide button when viewing active products
-      <button
-        onClick={() => handleHideProduct(product.id)}
-        className="text-gray-500 hover:text-gray-700 flex items-center gap-1"
-        title="Hide Product"
-      >
-        <HiEyeSlash className="h-5 w-5" /> Hide
-      </button>
-    ) : (
-      // Show Unhide button when viewing hidden products
-     <button
-  onClick={() => handleUnhideProduct(product)}
-  className="text-gray-500 hover:text-gray-700 flex items-center gap-1"
-  title="Unhide Product"
->
-  <HiEyeSlash className="h-5 w-5" /> Unhide
-</button>
-
-    )}
-  </div>
-                                                ) : col.key === 'stock' ? (
-                                                    <>
-                                                    {product.stock === 0 ? (
-                                                        <span className="text-xs text-white bg-red-500 px-2 py-1 rounded-full">
-                                                        Out of Stock
-                                                        </span>
-                                                    ) : product.stock <= 5 ? (
-                                                        <span className="text-xs text-white bg-yellow-500 px-2 py-1 rounded-full">
-                                                        Low Stock ({product.stock})
-                                                        </span>
-                                                    ) : (
-                                                        product.stock
-                                                    )}
-                                                    </>
-                                                ) : (
-                                                    product[col.key]
-                                                )}
-                                                </td>
-
+                                                        key={col.key}
+                                                        className="px-4 py-2 border-b"
+                                                        onDoubleClick={() => handleCellDoubleClick(indexOfFirstItem + rowIdx, col.key)}
+                                                    >
+                                                        {editCell.row === indexOfFirstItem + rowIdx && editCell.col === col.key ? (
+                                                            <input
+                                                                type={col.key === 'price' || col.key === 'stock' ? 'number' : 'text'}
+                                                                value={editValue}
+                                                                autoFocus
+                                                                onChange={handleCellChange}
+                                                                onBlur={() => handleCellBlur(indexOfFirstItem + rowIdx, col.key)}
+                                                                onKeyDown={e => handleCellKeyDown(e, indexOfFirstItem + rowIdx, col.key)}
+                                                                className="border rounded px-2 py-1 w-full"
+                                                            />
+                                                        ) : col.key === 'image' ? (
+                                                            product.image_url ? (
+                                                                <img
+                                                                    src={`http://localhost:8000/storage/${product.image}`}
+                                                                    alt={product.name}
+                                                                    className="w-12 h-12 object-cover rounded cursor-pointer"
+                                                                    onError={(e) => {
+                                                                        e.target.onerror = null;
+                                                                        e.target.src = '/placeholder.jpg';
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <span>No image</span>
+                                                            )
+                                                        ) : col.key === 'actions' ? (
+                                                            <div className="flex gap-2 items-center">
+                                                                {!showHidden ? (
+                                                                    <>
+                                                                        <div className="flex items-center gap-1">
+                                                                            <input
+                                                                                type="number"
+                                                                                min="1"
+                                                                                value={restockQuantities[product.id] || ''}
+                                                                                onChange={(e) => handleRestockQuantityChange(product.id, e.target.value)}
+                                                                                className="w-16 p-1 border rounded text-sm"
+                                                                                placeholder="Qty"
+                                                                            />
+                                                                            <button
+                                                                                onClick={() => handleRestock(product.id)}
+                                                                                className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+                                                                                title="Restock Product"
+                                                                            >
+                                                                                Restock
+                                                                            </button>
+                                                                        </div>
+                                                                        <button
+                                                                            onClick={() => handleHideProduct(product.id)}
+                                                                            className="text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                                                                            title="Hide Product"
+                                                                        >
+                                                                            <HiEyeSlash className="h-5 w-5" /> Hide
+                                                                        </button>
+                                                                    </>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => handleUnhideProduct(product)}
+                                                                        className="text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                                                                        title="Unhide Product"
+                                                                    >
+                                                                        <HiEyeSlash className="h-5 w-5" /> Unhide
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        ) : col.key === 'stock' ? (
+                                                            <>
+                                                                {product.stock === 0 ? (
+                                                                    <span className="text-xs text-white bg-red-500 px-2 py-1 rounded-full">
+                                                                        Out of Stock
+                                                                    </span>
+                                                                ) : product.stock <= 5 ? (
+                                                                    <span className="text-xs text-yellow-800 bg-yellow-100 px-2 py-1 rounded-full">
+                                                                        Low Stock ({product.stock})
+                                                                    </span>
+                                                                ) : (
+                                                                    product.stock
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            product[col.key]
+                                                        )}
+                                                    </td>
                                                 ))}
                                             </tr>
                                         ))

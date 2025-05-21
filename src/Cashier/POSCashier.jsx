@@ -54,12 +54,11 @@ const POSCashier = () => {
   const [receiptItems, setReceiptItems] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoadingPurchases, setIsLoadingPurchases] = useState(false);
-const [purchaseHistory, setPurchaseHistory] = useState([]);
+  const [purchaseHistory, setPurchaseHistory] = useState([]);
+  const [isTransactionLoading, setIsTransactionLoading] = useState(false);
+
 
  
-
-  
-  
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -77,8 +76,17 @@ const [purchaseHistory, setPurchaseHistory] = useState([]);
         setIsLoading(false);
       }
     };
+    
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+  const storedLogs = localStorage.getItem('activityLogs');
+  if (storedLogs) {
+    setActivityLogs(JSON.parse(storedLogs));
+  }
+}, []);
+
  const fetchPurchaseHistory = async () => {
   try {
     setIsLoadingPurchases(true);
@@ -97,15 +105,18 @@ const [purchaseHistory, setPurchaseHistory] = useState([]);
   }[currentUser.role];
 
   const logActivity = (desc) => {
-    setActivityLogs(logs => [
-      ...logs,
-      { 
-        user: currentUser.username, 
-        desc,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }
-    ]);
+  const newLog = {
+    user: currentUser.username,
+    desc,
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   };
+  
+  setActivityLogs(logs => {
+    const updatedLogs = [...logs, newLog];
+    localStorage.setItem('activityLogs', JSON.stringify(updatedLogs));
+    return updatedLogs;
+  });
+};
 
   useEffect(() => {
     if (cart.length > 0 && userRole.canEditProduct) {
@@ -161,10 +172,71 @@ const [purchaseHistory, setPurchaseHistory] = useState([]);
   const total = getTotal();
   const cash = parseFloat(cashGiven) || 0;
 
-  // ✅ Add this condition to block transaction
   if (selectedPayment === 'cash' && cash < total) {
     setErrorAlert(`❌ Insufficient cash. You need at least ₱${total.toFixed(2)} to proceed.`);
     return;
+  }
+
+  setIsTransactionLoading(true); // Start loading
+
+  try {
+    setReceiptItems([...cart]);
+
+    await Promise.all(cart.map(async (item) => {
+      const product = products.find(p => p.id === item.id);
+      if (product) {
+        const updatePayload = {
+          name: product.name,
+          price: product.price,
+          stock: product.stock - item.quantity,
+          category_id: product.category_id,
+          unit: product.unit
+        };
+        await API.put(`/products/${item.id}`, updatePayload);
+      }
+    }));
+
+    await API.post('/purchases', {
+      cashier_id: currentUser.id,
+      total_amount: total,
+      payment_method: selectedPayment,
+      cash_received: selectedPayment === 'cash' ? cash : null,
+      change: selectedPayment === 'cash' ? cash - total : null,
+      items: cart.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity
+      }))
+    });
+
+    const response = await API.get('/products');
+    const validatedProducts = response.data.map(prod => ({
+      ...prod,
+      price: Number(prod.price),
+      stock: Number(prod.stock)
+    }));
+    setProducts(validatedProducts);
+    await fetchPurchaseHistory();
+    logActivity('Transaction complete');
+    setErrorAlert('');
+
+    // Wait for 2 seconds before showing the receipt
+    setTimeout(() => {
+      setShowReceipt(true);
+      setIsTransactionLoading(false);
+    }, 2000);
+
+  } catch (error) {
+    setIsTransactionLoading(false);
+    console.error('Error completing transaction:', error);
+    if (error.response?.status === 422) {
+      const serverErrors = error.response.data.errors || {};
+      const errorMessages = Object.values(serverErrors).flat().join(', ');
+      setErrorAlert(errorMessages || 'Validation failed');
+    } else {
+      setErrorAlert(error.response?.data?.message || 'Failed to complete transaction');
+    }
   }
 
   try {
@@ -355,7 +427,26 @@ const [purchaseHistory, setPurchaseHistory] = useState([]);
                       <div className="text-blue-600">
                         ₱{Number(product.price).toFixed(2)}
                       </div>
-                      <div className="text-gray-500">Stock: {product.stock}</div>
+                      <div className="text-center font-semibold">
+                        <div
+                          className={`${
+                            product.stock === 0
+                              ? 'text-red-800 bg-red-100 rounded px-1'
+                              : product.stock < 3
+                              ? 'text-yellow-800'
+                              : 'text-green-800'
+                          }`}
+                        >
+                          {product.stock === 0
+                            ? 'Out of stock'
+                            : product.stock < 50
+                            ? 'Low stock'
+                            : 'In stock'}
+                        </div>
+                        <div className="mt-1">
+                          {product.stock}
+                        </div>
+                      </div>
                     </div>
                   </button>
                 ))}
@@ -438,13 +529,13 @@ const [purchaseHistory, setPurchaseHistory] = useState([]);
                   <div>
                     <label className="block text-sm font-medium mb-2">Cash Received</label>
                     <input
-  type="number"
-  value={cashGiven}
-  onChange={e => handleCashGiven(e.target.value)}
-  className={`w-full border rounded-lg px-3 py-2 ${
-    selectedPayment === 'cash' && parseFloat(cashGiven) < getTotal() ? 'border-red-500' : ''
-  }`}
-/>
+                      type="number"
+                      value={cashGiven}
+                      onChange={e => handleCashGiven(e.target.value)}
+                      className={`w-full border rounded-lg px-3 py-2 ${
+                        selectedPayment === 'cash' && parseFloat(cashGiven) < getTotal() ? 'border-red-500' : ''
+                      }`}
+                    />
 
                   </div>
                   <div>
@@ -458,141 +549,150 @@ const [purchaseHistory, setPurchaseHistory] = useState([]);
             )}
 
             {/* Transaction Button */}
-            <button
+           <button
               onClick={handleCompleteTransaction}
-              disabled={cart.length === 0 || (selectedPayment === 'cash' && change < 0)}
-              className="w-full py-4 bg-green-600 text-white rounded-xl text-lg font-semibold hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              disabled={isTransactionLoading}
+              className="w-full bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 disabled:bg-gray-400 transition-colors flex items-center justify-center"
             >
-              Complete Transaction
-            </button>
-          </div>
-
-          {/* Activity Logs Sidebar */}
-          <div className="w-96 bg-white border-l p-6">
-            <h2 className="text-lg font-semibold mb-4">Activity Logs</h2>
-            <div className="space-y-3 h-[calc(100vh-8rem)] overflow-y-auto pr-2">
-              {activityLogs.slice().reverse().map((log, idx) => (
-                <div key={idx} className="p-4 bg-gray-50 rounded-lg">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="font-medium text-blue-600">{log.user}</span>
-                    <span className="text-gray-500">{log.time}</span>
-                  </div>
-                  <div className="mt-1 text-sm text-gray-700">{log.desc}</div>
-                </div>
-              ))}
-              {activityLogs.length === 0 && (
-                <div className="p-4 text-center text-gray-400">
-                  No activities to display
-                </div>
+              {isTransactionLoading ? (
+                <>
+                  <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></span>
+                  Processing...
+                </>
+              ) : (
+                'Complete Transaction'
               )}
-            </div>
-          </div>
-        </div>
-
-        {/* Receipt Modal */}
-        {showReceipt && (
-         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md relative z-50">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center border-b p-4">
-                <h2 className="text-xl font-semibold">Transaction Receipt</h2>
-                <div className="flex space-x-2">
-                  <button 
-                    onClick={handlePrintReceipt}
-                    className="p-2 text-gray-600 hover:text-blue-600"
-                    title="Print Receipt"
-                  >
-                    <FiPrinter className="w-5 h-5" />
-                  </button>
-                  <button 
-                    onClick={closeReceiptModal}
-                    className="p-2 text-gray-600 hover:text-red-600"
-                    title="Close"
-                  >
-                    <FiX className="w-5 h-5" />
-                  </button>
-                </div>
+            </button>
               </div>
-              
-              {/* Modal Body */}
-              <div className="p-6">
-                <div className="mb-4 text-center">
-                  <h3 className="font-bold text-lg">Vape Shop</h3>
-                  <p className="text-sm text-gray-500">Tagoloan</p>
-                  <p className="text-sm text-gray-500">Phone: (123) 456-7890</p>
-                </div>
-                
-                <div className="border-t border-b py-2 my-3 text-sm">
-                  <div className="flex justify-between">
-                    <span>Date:</span>
-                    <span>{new Date().toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Time:</span>
-                    <span>{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Cashier:</span>
-                    <span>{currentUser.username}</span>
-                  </div>
-                </div>
-                
-                <table className="w-full text-sm mb-4">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left pb-2">Item</th>
-                      <th className="text-right pb-2">Price</th>
-                      <th className="text-right pb-2">Qty</th>
-                      <th className="text-right pb-2">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {receiptItems.map((item, index) => (
-                      <tr key={index} className="border-b">
-                        <td className="py-2">{item.name}</td>
-                        <td className="text-right py-2">₱{item.price.toFixed(2)}</td>
-                        <td className="text-right py-2">{item.quantity}</td>
-                        <td className="text-right py-2">₱{(item.price * item.quantity).toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
 
-                <div className="border-t pt-3 text-sm">
-                  <div className="flex justify-between font-semibold">
-                    <span>Subtotal:</span>
-                    <span>₱{getTotal().toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Payment Method:</span>
-                    <span>{selectedPayment === 'cash' ? 'Cash' : 'Credit Card'}</span>
-                  </div>
-                  {selectedPayment === 'cash' && (
-                    <>
-                      <div className="flex justify-between">
-                        <span>Cash Received:</span>
-                        <span>₱{parseFloat(cashGiven || '0').toFixed(2)}</span>
+              {/* Activity Logs Sidebar */}
+              <div className="w-96 bg-white border-l p-6">
+                <h2 className="text-lg font-semibold mb-4">Activity Logs</h2>
+                <div className="space-y-3 h-[calc(100vh-8rem)] overflow-y-auto pr-2">
+                  {activityLogs.slice().reverse().map((log, idx) => (
+                    <div key={idx} className="p-4 bg-gray-50 rounded-lg">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="font-medium text-blue-600">{log.user}</span>
+                        <span className="text-gray-500">{log.time}</span>
                       </div>
-                      <div className="flex justify-between font-semibold">
-                        <span>Change:</span>
-                        <span>₱{change.toFixed(2)}</span>
-                      </div>
-                    </>
+                      <div className="mt-1 text-sm text-gray-700">{log.desc}</div>
+                    </div>
+                  ))}
+                  {activityLogs.length === 0 && (
+                    <div className="p-4 text-center text-gray-400">
+                      No activities to display
+                    </div>
                   )}
                 </div>
-                
-                <div className="mt-6 text-center text-xs text-gray-500">
-                  <p>Thank you for your purchase!</p>
-                  <p>Please come again</p>
-                </div>
               </div>
-              
-              {/* Modal Footer */}
-              <div className="border-t p-4 flex justify-end">
-                <button
-                  onClick={closeReceiptModal}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                >
+            </div>
+
+            {/* Receipt Modal */}
+            {showReceipt && (
+            <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+                <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md relative z-50">
+                  {/* Modal Header */}
+                  <div className="flex justify-between items-center border-b p-4">
+                    <h2 className="text-xl font-semibold">Transaction Receipt</h2>
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={handlePrintReceipt}
+                        className="p-2 text-gray-600 hover:text-blue-600"
+                        title="Print Receipt"
+                      >
+                        <FiPrinter className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={closeReceiptModal}
+                        className="p-2 text-gray-600 hover:text-red-600"
+                        title="Close"
+                      >
+                        <FiX className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                
+
+                  {/* Modal Body */}
+                  <div className="p-6">
+                    <div className="mb-4 text-center">
+                      <h3 className="font-bold text-lg">Vape Shop</h3>
+                      <p className="text-sm text-gray-500">Tagoloan</p>
+                      <p className="text-sm text-gray-500">Phone: (123) 456-7890</p>
+                    </div>
+                    
+                    <div className="border-t border-b py-2 my-3 text-sm">
+                      <div className="flex justify-between">
+                        <span>Date:</span>
+                        <span>{new Date().toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Time:</span>
+                        <span>{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Cashier:</span>
+                        <span>{currentUser.username}</span>
+                      </div>
+                    </div>
+                    
+                    <table className="w-full text-sm mb-4">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left pb-2">Item</th>
+                          <th className="text-right pb-2">Price</th>
+                          <th className="text-right pb-2">Qty</th>
+                          <th className="text-right pb-2">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {receiptItems.map((item, index) => (
+                          <tr key={index} className="border-b">
+                            <td className="py-2">{item.name}</td>
+                            <td className="text-right py-2">₱{item.price.toFixed(2)}</td>
+                            <td className="text-right py-2">{item.quantity}</td>
+                            <td className="text-right py-2">₱{(item.price * item.quantity).toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    <div className="border-t pt-3 text-sm">
+                      <div className="flex justify-between font-semibold">
+                        <span>Subtotal:</span>
+                        <span>₱{getTotal().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Payment Method:</span>
+                        <span>{selectedPayment === 'cash' ? 'Cash' : 'Credit Card'}</span>
+                      </div>
+                      {selectedPayment === 'cash' && (
+                        <>
+                          <div className="flex justify-between">
+                            <span>Cash Received:</span>
+                            <span>₱{parseFloat(cashGiven || '0').toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between font-semibold">
+                            <span>Change:</span>
+                            <span>₱{change.toFixed(2)}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    
+                    <div className="mt-6 text-center text-xs text-gray-500">
+                      <p>Thank you for your purchase!</p>
+                      <p>Please come again</p>
+                    </div>
+                  </div>
+                  
+                  {/* Modal Footer */}
+                  <div className="border-t p-4 flex justify-end">
+                    <button
+                      onClick={closeReceiptModal}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                    >
                   Close
                 </button>
               </div>

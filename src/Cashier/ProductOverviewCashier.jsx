@@ -160,25 +160,25 @@ const ProductOverviewCashier = () => {
             <div className="flex-1 flex flex-col ml-64">
                 <Header />
                 <main className="flex-1 p-6">
-                    <div className="max-w-7xl mx-auto">
-                                                <div className="flex justify-between items-center mb-6">
+                    <div className="max-w-full mx-auto">
+                    <div className="flex justify-between items-center mb-6">
                         <h1 className="text-3xl font-bold text-gray-800">Product Overview</h1>
                         <div className="flex gap-2">
                            <button
-  onClick={() => setShowHidden(!showHidden)}
-  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 shadow-md cursor-not-allowed opacity-50"
-  disabled
->
-  <HiEyeSlash className="h-5 w-5" />
-  {showHidden ? 'Show Active Products' : 'Show Hidden Products'}
-</button>
+                                onClick={() => setShowHidden(!showHidden)}
+                                className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 shadow-md cursor-not-allowed opacity-50"
+                                disabled
+                                >
+                                <HiEyeSlash className="h-5 w-5" />
+                                {showHidden ? 'Show Active Products' : 'Show Hidden Products'}
+                                </button>
 
-                            <button
-  disabled
-  className="bg-gray-400 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-md cursor-not-allowed"
->
-  <FiPlus /> Add New Product
-</button>
+                                                            <button
+                                disabled
+                                className="bg-gray-400 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-md cursor-not-allowed"
+                                >
+                                <FiPlus /> Add New Product
+                                </button>
 
                         </div>
                         </div>
@@ -252,7 +252,7 @@ const ProductOverviewCashier = () => {
                                                         Out of Stock
                                                         </span>
                                                     ) : product.stock <= 50 ? (
-                                                        <span className="text-xs text-white bg-yellow-500 px-2 py-1 rounded-full">
+                                                        <span className="text-xs text-yellow-800 bg-yellow-100 px-2 py-1 rounded-full">
                                                         Low Stock ({product.stock})
                                                         </span>
                                                     ) : (

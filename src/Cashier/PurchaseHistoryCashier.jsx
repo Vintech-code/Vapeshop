@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import API from '../api';
-import { FiSearch, FiClock, FiUser, FiTrash2 } from 'react-icons/fi';
+import { FiSearch, FiClock, FiUser } from 'react-icons/fi';
 import { format } from 'date-fns';
 import SideMenu from '../layouts/SideMenu'; 
 import Header from '../layouts/Header';
@@ -185,12 +185,7 @@ const PurchaseHistoryCashier = () => {
                         >
                           View
                         </button>
-                        <button
-                          onClick={() => handleDelete(purchase.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <FiTrash2 className="inline" />
-                        </button>
+                        
                       </td>
                     </tr>
                   ))

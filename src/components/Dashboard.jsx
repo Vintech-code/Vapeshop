@@ -88,7 +88,7 @@ const Dashboard = () => {
       <div className="flex-1 flex flex-col ml-64">
         <Header />
         <main className="flex-1 p-6">
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-full mx-auto">
             <h1 className="text-3xl font-bold text-gray-800 mb-6">Dashboard</h1>
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -186,7 +186,7 @@ const Dashboard = () => {
               <div className="flex justify-between items-center p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-800">Recent Products</h2>
                 <a
-                  href="/products"
+                  href="/product-overview"
                   className="flex items-center gap-2 text-blue-600 hover:underline"
                 >
                   <FiPlus /> Manage Products

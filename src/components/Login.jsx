@@ -29,7 +29,7 @@ const LoginPage = () => {
       if (role === 'admin') {
         navigate('/dashboard');
       } else if (role === 'cashier') {
-        navigate('/categories');
+        navigate('/poscashier');
       } else {
         setErrorMsg('Unauthorized role');
       }
