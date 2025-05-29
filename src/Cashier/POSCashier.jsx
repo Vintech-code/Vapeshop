@@ -177,7 +177,7 @@ const POSCashier = () => {
     return;
   }
 
-  setIsTransactionLoading(true); // Start loading
+  setIsTransactionLoading(true);
 
   try {
     setReceiptItems([...cart]);
@@ -221,7 +221,6 @@ const POSCashier = () => {
     logActivity('Transaction complete');
     setErrorAlert('');
 
-    // Wait for 2 seconds before showing the receipt
     setTimeout(() => {
       setShowReceipt(true);
       setIsTransactionLoading(false);
@@ -238,60 +237,8 @@ const POSCashier = () => {
       setErrorAlert(error.response?.data?.message || 'Failed to complete transaction');
     }
   }
-
-  try {
-    setReceiptItems([...cart]);
-
-    await Promise.all(cart.map(async (item) => {
-      const product = products.find(p => p.id === item.id);
-      if (product) {
-        const updatePayload = {
-          name: product.name,
-          price: product.price,
-          stock: product.stock - item.quantity,
-          category_id: product.category_id,
-          unit: product.unit
-        };
-        await API.put(`/products/${item.id}`, updatePayload);
-      }
-    }));
-
-    await API.post('/purchases', {
-      cashier_id: currentUser.id,
-      total_amount: total,
-      payment_method: selectedPayment,
-      cash_received: selectedPayment === 'cash' ? cash : null,
-      change: selectedPayment === 'cash' ? cash - total : null,
-      items: cart.map(item => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity
-      }))
-    });
-
-    const response = await API.get('/products');
-    const validatedProducts = response.data.map(prod => ({
-      ...prod,
-      price: Number(prod.price),
-      stock: Number(prod.stock)
-    }));
-    setProducts(validatedProducts);
-    await fetchPurchaseHistory();
-    logActivity('Transaction complete');
-    setShowReceipt(true);
-    setErrorAlert('');
-  } catch (error) {
-    console.error('Error completing transaction:', error);
-    if (error.response?.status === 422) {
-      const serverErrors = error.response.data.errors || {};
-      const errorMessages = Object.values(serverErrors).flat().join(', ');
-      setErrorAlert(errorMessages || 'Validation failed');
-    } else {
-      setErrorAlert(error.response?.data?.message || 'Failed to complete transaction');
-    }
-  }
 };
+
 
 
   const getTotal = () => cart.reduce((sum, item) => sum + (Number(item.price) * item.quantity), 0);

@@ -7,6 +7,17 @@ import Header from '../layouts/Header';
 import API from '../api';
 
 const ProductOverview = () => {
+    const categories = [
+        'Pod Systems', 'Box Mods', 'Mechanical Mods', 'Squonk Mods', 'Disposable Vapes',
+        'Pen-style Vapes', 'Cig-a-likes', 'All-in-One (AIO) Vapes',
+        'Sub-ohm Tanks', 'MTL Tanks', 'RTAs', 'RDAs', 'RDTAs',
+        'Freebase E-liquids', 'Nicotine Salt E-liquids', 'Shortfills', 'CBD E-liquids',
+        'Coils', 'Batteries', 'Chargers', 'Drip Tips', 'Cotton & Wire', 'Glass Replacements',
+        'Fruit Flavors', 'Menthol Flavors', 'Tobacco Flavors', 'Dessert Flavors',
+        'Candy Flavors', 'Beverage Flavors', 'Creamy Flavors', 'Other'
+        ].sort();
+
+
     const [products, setProducts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -17,6 +28,13 @@ const ProductOverview = () => {
         stock: '',
         image: null
     });
+    const [formErrors, setFormErrors] = useState({
+    name: false,
+    category: false,
+    price: false,
+    stock: false,
+    image: false
+    });
     const [overviewProduct, setOverviewProduct] = useState(null);
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
@@ -25,6 +43,8 @@ const ProductOverview = () => {
     const [editValue, setEditValue] = useState('');
     const [showHidden, setShowHidden] = useState(false);
     const [restockQuantities, setRestockQuantities] = useState({});
+    const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+    
 
     const columns = [
         { key: 'id', label: 'ID' },
@@ -129,50 +149,78 @@ const ProductOverview = () => {
     };
 
     const handleAddProduct = async () => {
-        const formData = new FormData();
-        formData.append('name', newProduct.name);
-        formData.append('category', newProduct.category);
-        formData.append('price', parseFloat(newProduct.price));
-        formData.append('stock', parseInt(newProduct.stock));
-        
-        if (!newProduct.image) {
-            toast.error('Please select an image', {
-                position: "top-right",
-                autoClose: 3000,
-            });
-            return;
-        }
-        formData.append('image', newProduct.image);
-
-        try {
-            const response = await API.post('/products', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
-            
-            fetchProducts();
-            setNewProduct({ name: '', category: '', price: '', stock: '', image: null });
-            setIsModalOpen(false);
-            
-            toast.success('Product added successfully!', {
-                position: "top-right",
-                autoClose: 3000,
-                hideProgressBar: false,
-                closeOnClick: true,
-                pauseOnHover: true,
-                draggable: true,
-                theme: "colored",
-            });
-        } catch (error) {
-            console.error('Error adding product:', error);
-            toast.error('Failed to add product', {
-                position: "top-right",
-                autoClose: 3000,
-                theme: "colored",
-            });
-        }
+    // Validate all fields
+    const errors = {
+        name: !newProduct.name,
+        category: !newProduct.category,
+        price: !newProduct.price || isNaN(newProduct.price),
+        stock: !newProduct.stock || isNaN(newProduct.stock),
+        image: !newProduct.image
     };
+
+    setFormErrors(errors);
+
+    // If any errors exist, prevent submission
+    if (Object.values(errors).some(error => error)) {
+        toast.error('Please fill all required fields correctly', {
+            position: "top-right",
+            autoClose: 3000,
+        });
+        return;
+    }
+
+    // Rest of your existing handleAddProduct logic...
+    const formData = new FormData();
+    formData.append('name', newProduct.name);
+    formData.append('category', newProduct.category);
+    formData.append('price', parseFloat(newProduct.price));
+    formData.append('stock', parseInt(newProduct.stock));
+    
+    if (!newProduct.image) {
+        toast.error('Please select an image', {
+            position: "top-right",
+            autoClose: 3000,
+        });
+        return;
+    }
+    formData.append('image', newProduct.image);
+
+    try {
+        const response = await API.post('/products', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        
+        fetchProducts();
+        setNewProduct({ name: '', category: '', price: '', stock: '', image: null });
+        setFormErrors({
+            name: false,
+            category: false,
+            price: false,
+            stock: false,
+            image: false
+        });
+        setIsModalOpen(false);
+        
+        toast.success('Product added successfully!', {
+            position: "top-right",
+            autoClose: 3000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            theme: "colored",
+        });
+    } catch (error) {
+        console.error('Error adding product:', error);
+        toast.error('Failed to add product', {
+            position: "top-right",
+            autoClose: 3000,
+            theme: "colored",
+        });
+    }
+};
 
     const handleCellDoubleClick = (rowIdx, colKey) => {
         if (colKey === 'id' || colKey === 'image') return;
@@ -389,79 +437,156 @@ const ProductOverview = () => {
             </div>
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center">
-                    <div
-                        className="fixed inset-0"
-                        style={{
-                            background: 'rgba(0,0,0,0.15)',
-                            backdropFilter: 'blur(2px)',
-                            cursor: 'pointer',
-                        }}
-                        onClick={() => setIsModalOpen(false)}
-                    ></div>
-                    <div
-                        className="relative bg-white rounded-lg shadow-lg p-6 w-full max-w-md z-10"
-                        onClick={(e) => e.stopPropagation()}
-                    >
+                    {/* Backdrop */}
+                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={() => {
+                        setIsModalOpen(false);
+                        setFormErrors({
+                            name: false,
+                            category: false,
+                            price: false,
+                            stock: false,
+                            image: false
+                        });
+                    }}></div>
+                    
+                    {/* Modal Content */}
+                    <div className="relative bg-white rounded-lg shadow-lg p-6 w-full max-w-md z-10" onClick={(e) => e.stopPropagation()}>
+                        {/* Modal Header */}
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-xl font-bold text-gray-800">Add New Product</h2>
-                            <button
-                                onClick={() => setIsModalOpen(false)}
-                                className="text-gray-500 hover:text-gray-700"
-                            >
+                            <button onClick={() => {
+                                setIsModalOpen(false);
+                                setFormErrors({
+                                    name: false,
+                                    category: false,
+                                    price: false,
+                                    stock: false,
+                                    image: false
+                                });
+                            }} className="text-gray-500 hover:text-gray-700">
                                 <FiX size={24} />
                             </button>
                         </div>
+                        
+                        {/* Form Fields */}
                         <div className="space-y-4">
-                            <input
-                                type="text"
-                                placeholder="Product Name"
-                                value={newProduct.name}
-                                onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                                className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                required
-                            />
-                            <input
-                                type="text"
-                                placeholder="Category"
-                                value={newProduct.category}
-                                onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-                                className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                required
-                            />
-                            <input
-                                type="number"
-                                placeholder="Price"
-                                value={newProduct.price}
-                                onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
-                                className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                required
-                                min="0"
-                                step="0.01"
-                            />
-                            <input
-                                type="number"
-                                placeholder="Stock"
-                                value={newProduct.stock}
-                                onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
-                                className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                required
-                                min="0"
-                            />
-                            <div className="flex flex-col">
-                                <label className="mb-2 text-sm font-medium text-gray-700">Product Image</label>
+                            {/* Product Name */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
+                                <input
+                                    type="text"
+                                    placeholder="Enter product name"
+                                    value={newProduct.name}
+                                    onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                                    className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 ${formErrors.name ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500'}`}
+                                />
+                                {formErrors.name && <p className="mt-1 text-sm text-red-600">Product name is required</p>}
+                            </div>
+
+                            {/* Category */}
+                            <div className="relative">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Search or select category"
+                                        value={newProduct.category}
+                                        onChange={(e) => {
+                                            setNewProduct({ ...newProduct, category: e.target.value });
+                                            setShowCategoryDropdown(true);
+                                        }}
+                                        onFocus={() => setShowCategoryDropdown(true)}
+                                        onBlur={() => setTimeout(() => setShowCategoryDropdown(false), 200)}
+                                        className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 pr-8 ${formErrors.category ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500'}`}
+                                    />
+                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                {formErrors.category && <p className="mt-1 text-sm text-red-600">Category is required</p>}
+                                {showCategoryDropdown && (
+                                    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+                                        {categories
+                                            .filter(category => 
+                                                category.toLowerCase().includes(newProduct.category.toLowerCase())
+                                            )
+                                            .map((category) => (
+                                                <div
+                                                    key={category}
+                                                    className="px-4 py-2 hover:bg-blue-50 cursor-pointer"
+                                                    onMouseDown={(e) => e.preventDefault()}
+                                                    onClick={() => {
+                                                        setNewProduct({ ...newProduct, category });
+                                                        setShowCategoryDropdown(false);
+                                                        setFormErrors(prev => ({ ...prev, category: false }));
+                                                    }}
+                                                >
+                                                    {category}
+                                                </div>
+                                            ))
+                                        }
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Price */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Price *</label>
+                                <input
+                                    type="number"
+                                    placeholder="Enter price"
+                                    value={newProduct.price}
+                                    onChange={(e) => {
+                                        setNewProduct({ ...newProduct, price: e.target.value });
+                                        setFormErrors(prev => ({ ...prev, price: false }));
+                                    }}
+                                    className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 ${formErrors.price ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500'}`}
+                                    min="0"
+                                    step="0.01"
+                                />
+                                {formErrors.price && <p className="mt-1 text-sm text-red-600">Valid price is required</p>}
+                            </div>
+
+                            {/* Stock */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Stock *</label>
+                                <input
+                                    type="number"
+                                    placeholder="Enter stock quantity"
+                                    value={newProduct.stock}
+                                    onChange={(e) => {
+                                        setNewProduct({ ...newProduct, stock: e.target.value });
+                                        setFormErrors(prev => ({ ...prev, stock: false }));
+                                    }}
+                                    className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 ${formErrors.stock ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500'}`}
+                                    min="0"
+                                />
+                                {formErrors.stock && <p className="mt-1 text-sm text-red-600">Valid stock quantity is required</p>}
+                            </div>
+
+                            {/* Image */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Product Image *</label>
                                 <input
                                     type="file"
                                     accept="image/*"
-                                    onChange={(e) => setNewProduct({ ...newProduct, image: e.target.files[0] })}
-                                    className="w-full p-2 border rounded-lg"
+                                    onChange={(e) => {
+                                        setNewProduct({ ...newProduct, image: e.target.files[0] });
+                                        setFormErrors(prev => ({ ...prev, image: false }));
+                                    }}
+                                    className={`w-full p-2 border rounded-lg ${formErrors.image ? 'border-red-500' : ''}`}
                                 />
+                                {formErrors.image && <p className="mt-1 text-sm text-red-600">Product image is required</p>}
                             </div>
                         </div>
+                        
+                        {/* Submit Button */}
                         <div className="flex justify-end mt-6">
                             <button
                                 onClick={handleAddProduct}
                                 className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-                                disabled={!newProduct.name || !newProduct.category || !newProduct.price || !newProduct.stock}
                             >
                                 Add Product
                             </button>

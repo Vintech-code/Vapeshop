@@ -64,18 +64,6 @@ const PurchaseHistoryCashier = () => {
     fetchPurchases();
   }, [currentPage, searchTerm]);
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this purchase record?')) return;
-    
-    try {
-      await API.delete(`/purchases/${id}`);
-      fetchPurchases();
-    } catch (error) {
-      console.error('Error deleting purchase:', error);
-      setError('Failed to delete purchase');
-    }
-  };
-
   const formatDate = (dateString) => {
     try {
       return format(new Date(dateString), 'MMM dd, yyyy hh:mm a');
@@ -303,11 +291,11 @@ const PurchaseHistoryCashier = () => {
                     <>
                       <div className="flex justify-between py-2">
                         <span className="font-medium">Cash Received:</span>
-                        <span>{(selectedPurchase.cash_received || 0).toFixed(2)}</span>
+                        <span>{(Number(selectedPurchase.cash_received) || 0).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between py-2 border-t font-bold">
                         <span>Change:</span>
-                        <span>{(selectedPurchase.change || 0).toFixed(2)}</span>
+                        <span>{(Number(selectedPurchase.change) || 0).toFixed(2)}</span>
                       </div>
                     </>
                   )}
