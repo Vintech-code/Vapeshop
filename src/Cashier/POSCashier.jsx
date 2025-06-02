@@ -314,28 +314,55 @@ const POSCashier = () => {
                     className="w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <div className="col-span-2">
-                  <div className="flex items-center border rounded-xl overflow-hidden">
-                    <button
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="px-3 py-3 bg-gray-50 border-r hover:bg-gray-100"
-                    >
-                      <FiArrowDown className="w-4 h-4" />
-                    </button>
-                    <input
-                      type="number"
-                      value={quantity}
-                      onChange={e => setQuantity(Math.max(1, Number(e.target.value)))}
-                      className="w-full px-3 py-2 text-center focus:outline-none"
-                    />
-                    <button
-                      onClick={() => setQuantity(quantity + 1)}
-                      className="px-3 py-3 bg-gray-50 border-l hover:bg-gray-100"
-                    >
-                      <FiArrowUp className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
+               <div className="col-span-2">
+  <div className="flex items-center border rounded-xl overflow-hidden">
+    <button
+      onClick={() => {
+        const newQty = Math.max(0, quantity - 0);
+        setQuantity(newQty);
+      }}
+      className="px-3 py-3 bg-gray-50 border-r hover:bg-gray-100"
+    >
+      <FiArrowDown className="w-4 h-4" />
+    </button>
+    <input
+      type="number"
+      min="0"
+      value={quantity}
+      onChange={(e) => {
+        const value = e.target.value;
+        // Only allow numbers and empty string (which we'll handle as 1)
+        if (value === '' || /^[1-9]\d*$/.test(value)) {
+          const numValue = value === '' ? 1 : parseInt(value, 10);
+          setQuantity(Math.max(1, numValue));
+        }
+      }}
+      onBlur={(e) => {
+        if (e.target.value === '') {
+          setQuantity(1);
+        }
+      }}
+      className="w-full px-3 py-2 text-center focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+    />
+    <button
+      onClick={() => {
+        // If a product is selected, don't allow exceeding its stock
+        if (selectedProduct) {
+          const product = products.find(p => p.id === Number(selectedProduct));
+          if (product) {
+            const newQty = Math.min(product.stock, quantity + 1);
+            setQuantity(newQty);
+            return;
+          }
+        }
+        setQuantity(quantity + 1);
+      }}
+      className="px-3 py-3 bg-gray-50 border-l hover:bg-gray-100"
+    >
+      <FiArrowUp className="w-4 h-4" />
+    </button>
+  </div>
+</div>
                 <div className="col-span-2">
                   <button
                     onClick={handleAddToCart}

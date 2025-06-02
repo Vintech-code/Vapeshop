@@ -64,18 +64,6 @@ const PurchaseHistory = () => {
     fetchPurchases();
   }, [currentPage, searchTerm]);
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this purchase record?')) return;
-    
-    try {
-      await API.delete(`/purchases/${id}`);
-      fetchPurchases();
-    } catch (error) {
-      console.error('Error deleting purchase:', error);
-      setError('Failed to delete purchase');
-    }
-  };
-
   const formatDate = (dateString) => {
     try {
       return format(new Date(dateString), 'MMM dd, yyyy hh:mm a');
@@ -172,8 +160,8 @@ const PurchaseHistory = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {`₱${Number(purchase.total_amount || 0).toFixed(2)}`}
-                      </td>
+                      {`₱${Number(purchase.total_amount || 0).toFixed(2)}`}
+                    </td>
 
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {(purchase.items?.length || 0)} items
@@ -185,7 +173,7 @@ const PurchaseHistory = () => {
                         >
                           View
                         </button>
-                       
+                        
                       </td>
                     </tr>
                   ))
@@ -227,7 +215,6 @@ const PurchaseHistory = () => {
       {/* Purchase Detail Modal */}
       {selectedPurchase && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/10 backdrop-blur-xs">
-
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
             <div className="flex justify-between items-center border-b p-4">
               <h3 className="text-lg font-semibold">Purchase Details</h3>
@@ -304,11 +291,11 @@ const PurchaseHistory = () => {
                     <>
                       <div className="flex justify-between py-2">
                         <span className="font-medium">Cash Received:</span>
-                        <span>{(selectedPurchase.cash_received || 0).toFixed(2)}</span>
+                        <span>{(Number(selectedPurchase.cash_received) || 0).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between py-2 border-t font-bold">
                         <span>Change:</span>
-                        <span>{(selectedPurchase.change || 0).toFixed(2)}</span>
+                        <span>{(Number(selectedPurchase.change) || 0).toFixed(2)}</span>
                       </div>
                     </>
                   )}
